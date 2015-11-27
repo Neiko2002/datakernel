@@ -18,6 +18,7 @@ package io.datakernel.cube.api;
 
 import com.google.common.net.MediaType;
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.reflect.TypeToken;
 import io.datakernel.aggregation_db.AggregationException;
 import io.datakernel.aggregation_db.AggregationQuery;
@@ -91,6 +92,11 @@ class CommonUtils {
 	}
 
 	public static List<String> getListOfStrings(Gson gson, String json) {
+		Type type = new TypeToken<List<String>>() {}.getType();
+		return gson.fromJson(json, type);
+	}
+
+	public static List<String> getListOfStrings(Gson gson, JsonElement json) {
 		Type type = new TypeToken<List<String>>() {}.getType();
 		return gson.fromJson(json, type);
 	}

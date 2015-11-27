@@ -46,7 +46,7 @@ public final class QueryPredicatesGsonSerializer implements JsonSerializer<Aggre
 	@SuppressWarnings("ConstantConditions")
 	@Override
 	public AggregationQuery.QueryPredicates deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
-		if (!(json instanceof JsonObject))
+		if (!json.isJsonObject())
 			throw new QueryException("Incorrect filters format. Should be represented as a JSON object");
 
 		JsonObject predicates = (JsonObject) json;

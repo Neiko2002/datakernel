@@ -45,7 +45,7 @@ public final class CubeHttpServer {
 
 		servlet.get(DIMENSIONS_REQUEST_PATH, new DimensionsRequestHandler(gson, cube, eventloop, classLoader));
 
-		servlet.get(REPORTING_QUERY_REQUEST_PATH, new ReportingQueryHandler(gson, cube, eventloop, classLoader));
+		servlet.post(REPORTING_QUERY_REQUEST_PATH, new ReportingQueryHandler(gson, cube, eventloop, classLoader));
 
 		return servlet;
 	}

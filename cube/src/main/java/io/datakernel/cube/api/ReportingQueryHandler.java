@@ -17,6 +17,7 @@
 package io.datakernel.cube.api;
 
 import com.google.gson.*;
+import com.google.gson.reflect.TypeToken;
 import io.datakernel.aggregation_db.AggregationQuery;
 import io.datakernel.aggregation_db.AggregationStructure;
 import io.datakernel.aggregation_db.api.QueryException;
@@ -38,6 +39,7 @@ import io.datakernel.util.Stopwatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Type;
 import java.util.*;
 
 import static com.google.common.collect.Iterables.concat;
@@ -47,6 +49,7 @@ import static com.google.common.collect.Maps.newLinkedHashMap;
 import static com.google.common.collect.Sets.newHashSet;
 import static io.datakernel.codegen.Expressions.*;
 import static io.datakernel.cube.api.CommonUtils.*;
+import static io.datakernel.util.ByteBufStrings.decodeUTF8;
 
 public final class ReportingQueryHandler implements AsyncHttpServlet {
 	private static final Logger logger = LoggerFactory.getLogger(ReportingQueryHandler.class);
@@ -58,6 +61,7 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 	private final NioEventloop eventloop;
 	private final DefiningClassLoader classLoader;
 	private final Resolver resolver;
+	private final JsonParser parser = new JsonParser();
 
 	public ReportingQueryHandler(Gson gson, Cube cube, NioEventloop eventloop, DefiningClassLoader classLoader) {
 		this.gson = gson;
@@ -69,23 +73,111 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 		this.resolver = new Resolver(classLoader, cube.getResolvers());
 	}
 
+	private static class ResultsCombiner implements ResultCallback<QueryJsonResult> {
+		private final int queries;
+		private final TreeMap<Integer, JsonObject> queryResults = new TreeMap<>();
+		private final List<Map<String, JsonElement>> request;
+		private final ResultCallback<HttpResponse> callback;
+		private boolean errorReceived;
+		private Stopwatch sw = Stopwatch.createStarted();
+
+		public ResultsCombiner(int queries, List<Map<String, JsonElement>> request, ResultCallback<HttpResponse> callback) {
+			this.queries = queries;
+			this.request = request;
+			this.callback = callback;
+		}
+
+		@Override
+		public void onResult(QueryJsonResult result) {
+			if (errorReceived)
+				return;
+
+			queryResults.put(result.queryId, result.jsonResult);
+			if (queryResults.size() == queries) {
+				sendResult();
+				logger.info("Sent response to request {} [time={}]", request, sw);
+			}
+		}
+
+		@Override
+		public void onException(Exception exception) {
+			if (errorReceived)
+				return;
+
+			callback.onResult(exception.getMessage() == null ? response500("Unknown server error") : response500(exception.getMessage()));
+			logger.info("Sent error response to request {} [time={}]", request, sw);
+			errorReceived = true;
+		}
+
+		private void sendResult() {
+			if (queryResults.size() == 1) {
+				callback.onResult(createResponse(queryResults.get(0).toString()));
+				return;
+			}
+
+			JsonArray array = new JsonArray();
+			for (JsonObject jsonObject : queryResults.values()) {
+				array.add(jsonObject);
+			}
+
+			callback.onResult(createResponse(array.toString()));
+		}
+	}
+
 	@Override
-	public void serveAsync(HttpRequest request, final ResultCallback<HttpResponse> callback) {
+	public void serveAsync(HttpRequest httpRequest, final ResultCallback<HttpResponse> callback) {
+		String requestBody = decodeUTF8(httpRequest.getBody());
 		try {
-			new ReportingRequestProcessor().processRequest(request, callback);
+			List<Map<String, JsonElement>> requests = parseRequest(requestBody);
+			ResultsCombiner resultsCombiner = new ResultsCombiner(requests.size(), requests, callback);
+			for (int i = 0; i < requests.size(); ++i) {
+				new ReportingRequestProcessor().processRequest(requests.get(i), i, resultsCombiner);
+			}
 		} catch (QueryException e) {
-			logger.info("Request {} could not be processed because of error: {}", request, e.getMessage());
+			logger.info("Request [{}] could not be processed because of error: {}", requestBody, e.getMessage());
 			callback.onResult(response500(e.getMessage()));
 		} catch (JsonParseException e) {
-			logger.info("Failed to parse JSON in request {}", request);
-			callback.onResult(response500("Failed to parse JSON request"));
+			logger.info("Failed to parse JSON in request [{}]", requestBody);
+			callback.onResult(response500("Failed to parse JSON"));
 		} catch (RuntimeException e) {
-			logger.error("Unknown exception occurred while processing request {}", request, e);
+			logger.error("Unknown exception occurred while processing request [{}]", requestBody, e);
 			callback.onResult(response500("Unknown server error"));
 		}
 	}
 
+	@SuppressWarnings("unchecked")
+	private List<Map<String, JsonElement>> parseRequest(String requestJson) {
+		JsonElement json = parser.parse(requestJson);
+
+		if (json.isJsonArray()) {
+			Type type = new TypeToken<List<Map<String, JsonElement>>>() {}.getType();
+			return gson.fromJson(requestJson, type);
+		}
+
+		if (json.isJsonObject()) {
+			Type type = new TypeToken<Map<String, JsonElement>>() {}.getType();
+			Map<String, JsonElement> map = gson.fromJson(requestJson, type);
+			return newArrayList(map);
+		}
+
+		throw new QueryException("Incorrect request format: should be either object or array");
+	}
+
+	private final static class QueryJsonResult {
+		private final int queryId;
+		private final JsonObject jsonResult;
+
+		public QueryJsonResult(int queryId, JsonObject jsonResult) {
+			this.queryId = queryId;
+			this.jsonResult = jsonResult;
+		}
+	}
+
 	private class ReportingRequestProcessor {
+		private Map<String, JsonElement> request;
+		private int queryId;
+		private ResultCallback<QueryJsonResult> callback;
+
 		private Map<AttributeResolver, List<String>> resolverKeys = newLinkedHashMap();
 		private Map<String, Class<?>> attributeTypes = newLinkedHashMap();
 		private Map<String, Object> keyConstants = newHashMap();
@@ -114,62 +206,81 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 		private Integer limit;
 		private Integer offset;
 
-		private void processRequest(final HttpRequest request, final ResultCallback<HttpResponse> callback) {
-			final Stopwatch sw = Stopwatch.createStarted();
-			processPredicates(request.getParameter("filters"));
+		private void processRequest(final Map<String, JsonElement> request, final int queryId,
+		                            final ResultCallback<QueryJsonResult> callback) {
+			try {
+				this.request = request;
+				this.queryId = queryId;
+				this.callback = callback;
+				doProcess();
+			} catch (QueryException e) {
+				logger.info("Request {} could not be processed because of error: {}", request, e.getMessage());
+				callback.onException(e);
+			} catch (JsonParseException e) {
+				logger.info("Failed to parse JSON in request {}", request);
+				callback.onException(new RuntimeException("Failed to parse JSON"));
+			} catch (RuntimeException e) {
+				logger.error("Unknown exception occurred while processing request {}", request, e);
+				callback.onException(new RuntimeException());
+			}
+		}
 
-			parseAttributes(request.getParameter("attributes"));
+		private void doProcess() {
+			final Stopwatch sw = Stopwatch.createStarted();
+			processPredicates(request.get("filters"));
+
+			parseAttributes(request.get("attributes"));
 			processAttributes();
 
-			parseDimensions(request.getParameter("dimensions"));
+			parseDimensions(request.get("dimensions"));
 
 			if (requestDimensions.isEmpty() && attributes.isEmpty())
 				throw new QueryException("At least one dimension or attribute must be specified");
 
 			processDimensions();
 
-			parseMeasures(request.getParameter("measures"));
+			parseMeasures(request.get("measures"));
 			processMeasures();
 
 			query
 					.keys(newArrayList(storedDimensions))
 					.fields(newArrayList(storedMeasures));
 
-			parseOrdering(request.getParameter("sort"));
+			parseOrdering(request.get("sort"));
 			processOrdering();
 
 			resultClass = createResultClass();
 			StreamConsumers.ToList<QueryResultPlaceholder> consumerStream = queryCube();
-			limit = valueOrNull(request.getParameter("limit"));
-			offset = valueOrNull(request.getParameter("offset"));
+			limit = valueOrNull(request.get("limit"), "limit");
+			offset = valueOrNull(request.get("offset"), "offset");
 
 			comparator = additionalSortingRequired ? generateComparator(orderingField, ascendingOrdering, resultClass) : null;
 			consumerStream.setResultCallback(new ResultCallback<List<QueryResultPlaceholder>>() {
 				@Override
 				public void onResult(List<QueryResultPlaceholder> results) {
 					try {
-						processResults(results, request, sw, callback);
+						processResults(results, sw);
 					} catch (Exception e) {
 						logger.error("Unknown exception occurred while processing results {}", e);
-						callback.onResult(response500("Unknown server error"));
+						callback.onException(new RuntimeException());
 					}
 				}
 
 				@Override
 				public void onException(Exception e) {
-					callback.onResult(response500(e));
-					logger.error("Sending response to query {} failed.", query, e);
+					logger.error("Executing query {} failed.", query, e);
+					callback.onException(new RuntimeException());
 				}
 			});
 		}
 
-		private void processPredicates(String predicatesJson) {
+		private void processPredicates(JsonElement predicatesJson) {
 			query = new AggregationQuery();
 			AggregationQuery.QueryPredicates queryPredicates = addPredicatesToQuery(predicatesJson);
 			predicates = queryPredicates == null ? null : queryPredicates.asMap();
 		}
 
-		private void parseAttributes(String attributesJson) {
+		private void parseAttributes(JsonElement attributesJson) {
 			if (attributesJson == null)
 				return;
 
@@ -202,7 +313,7 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 			}
 		}
 
-		private AggregationQuery.QueryPredicates addPredicatesToQuery(String predicatesJson) {
+		private AggregationQuery.QueryPredicates addPredicatesToQuery(JsonElement predicatesJson) {
 			AggregationQuery.QueryPredicates queryPredicates = null;
 
 			if (predicatesJson != null) {
@@ -216,7 +327,7 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 			return queryPredicates;
 		}
 
-		private void parseDimensions(String dimensionsJson) {
+		private void parseDimensions(JsonElement dimensionsJson) {
 			if (dimensionsJson == null)
 				return;
 
@@ -232,7 +343,7 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 			}
 		}
 
-		private void parseMeasures(String measuresJson) {
+		private void parseMeasures(JsonElement measuresJson) {
 			queryMeasures = getListOfStrings(gson, measuresJson);
 			if (queryMeasures == null || queryMeasures.isEmpty())
 				throw new QueryException("Measures must be specified");
@@ -252,7 +363,7 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 			}
 		}
 
-		private void parseOrdering(String orderingsJson) {
+		private void parseOrdering(JsonElement orderingsJson) {
 			if (orderingsJson == null)
 				return;
 
@@ -327,11 +438,10 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 		}
 
 		@SuppressWarnings("unchecked")
-		private void processResults(List<QueryResultPlaceholder> results, HttpRequest request, Stopwatch sw,
-		                            ResultCallback<HttpResponse> callback) {
+		private void processResults(List<QueryResultPlaceholder> results, Stopwatch sw) {
 			if (results.isEmpty()) {
-				callback.onResult(createResponse(constructEmptyResult()));
-				logger.info("Sent response to reporting request {} (query {}) [time={}]", request, query, sw);
+				logger.info("Executed request {} (query {}) [time={}]", request, query, sw);
+				callback.onResult(new QueryJsonResult(queryId, constructEmptyResult()));
 				return;
 			}
 
@@ -340,10 +450,10 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 			resolver.resolve((List) results, resultClass, attributeTypes, resolverKeys, keyConstants);
 			sort(results);
 
-			String jsonResult = constructQueryResultJson(results, resultClass,
+			JsonObject jsonResult = constructQueryResultJson(results, resultClass,
 					newArrayList(concat(requestDimensions, attributes)), queryMeasures, totalsPlaceholder);
-			callback.onResult(createResponse(jsonResult));
-			logger.info("Sent response to reporting request {} (query {}) [time={}]", request, query, sw);
+			logger.info("Executed request {} (query {}) [time={}]", request, query, sw);
+			callback.onResult(new QueryJsonResult(queryId, jsonResult));
 		}
 
 		private TotalsPlaceholder computeTotals(List<QueryResultPlaceholder> results) {
@@ -367,17 +477,17 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 			}
 		}
 
-		private String constructEmptyResult() {
+		private JsonObject constructEmptyResult() {
 			JsonObject jsonResult = new JsonObject();
 			jsonResult.add("records", new JsonArray());
 			jsonResult.add("totals", new JsonObject());
 			jsonResult.addProperty("count", 0);
-			return jsonResult.toString();
+			return jsonResult;
 		}
 
-		private <T> String constructQueryResultJson(List<T> results, Class<?> resultClass,
-		                                            List<String> resultKeys, List<String> resultFields,
-		                                            TotalsPlaceholder totalsPlaceholder) {
+		private <T> JsonObject constructQueryResultJson(List<T> results, Class<?> resultClass,
+		                                                List<String> resultKeys, List<String> resultFields,
+		                                                TotalsPlaceholder totalsPlaceholder) {
 			JsonObject jsonResult = new JsonObject();
 			JsonArray jsonRecords = new JsonArray();
 			JsonObject jsonTotals = new JsonObject();
@@ -436,13 +546,18 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 			jsonResult.add("totals", jsonTotals);
 			jsonResult.addProperty("count", results.size());
 
-			return jsonResult.toString();
+			return jsonResult;
 		}
 
-		private Integer valueOrNull(String str) {
-			if (str == null)
+		private Integer valueOrNull(JsonElement json, String fieldName) {
+			if (json == null)
 				return null;
-			return str.isEmpty() ? null : Integer.valueOf(str);
+
+			if (json.isJsonPrimitive() && ((JsonPrimitive) json).isNumber()) {
+				return json.getAsInt();
+			}
+
+			throw new QueryException("Incorrect " + fieldName + " format. Must be a number");
 		}
 
 		private TotalsPlaceholder createTotalsPlaceholder(Class<?> inputClass, Set<String> requestedStoredFields,
