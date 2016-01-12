@@ -71,15 +71,17 @@ public final class DatagraphClient {
 		eventloop.connect(address, socketSettings, new ConnectCallback() {
 			@Override
 			public void onConnect(SocketChannel socketChannel) {
-				StreamMessagingConnection<DatagraphResponse, DatagraphCommand> connection = new StreamMessagingConnection<>(eventloop, socketChannel,
-						new StreamGsonDeserializer<>(eventloop, serialization.gson, DatagraphResponse.class, 256 * 1024),
-						new StreamGsonSerializer<>(eventloop, serialization.gson, DatagraphCommand.class, 256 * 1024, 256 * (1 << 20), 0))
-						.addHandler(DatagraphResponseAck.class, new MessagingHandler<DatagraphResponseAck, DatagraphCommand>() {
-							@Override
-							public void onMessage(DatagraphResponseAck item, Messaging<DatagraphCommand> messaging) {
-								messaging.shutdown();
-							}
-						});
+				StreamMessagingConnection<DatagraphResponse, DatagraphCommand> connection =
+						new StreamMessagingConnection<>(eventloop, socketChannel,
+								new StreamGsonDeserializer<>(eventloop, serialization.gson, DatagraphResponse.class, 10),
+								new StreamGsonSerializer<>(eventloop, serialization.gson, DatagraphCommand.class,
+										256 * 1024, 256 * (1 << 20), 0))
+								.addHandler(DatagraphResponseAck.class, new MessagingHandler<DatagraphResponseAck, DatagraphCommand>() {
+									@Override
+									public void onMessage(DatagraphResponseAck item, Messaging<DatagraphCommand> messaging) {
+										messaging.shutdown();
+									}
+								});
 				if (starter != null) {
 					connection.addStarter(starter);
 				}
@@ -96,7 +98,8 @@ public final class DatagraphClient {
 	public <T> StreamProducer<T> download(InetSocketAddress address, final StreamId streamId, Class<T> type) {
 		BufferSerializer<T> serializer = serialization.getSerializer(type);
 
-		final StreamBinaryDeserializer<T> streamDeserializer = new StreamBinaryDeserializer<>(eventloop, serializer, StreamBinarySerializer.MAX_SIZE);
+		final StreamBinaryDeserializer<T> streamDeserializer = new StreamBinaryDeserializer<>(eventloop, serializer,
+				StreamBinarySerializer.MAX_SIZE);
 		streamDeserializer.setTag(streamId);
 
 		connectAndExecute(address,
@@ -126,5 +129,4 @@ public final class DatagraphClient {
 				}
 		);
 	}
-
 }

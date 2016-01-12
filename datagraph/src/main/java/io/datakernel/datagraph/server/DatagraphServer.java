@@ -93,7 +93,8 @@ public final class DatagraphServer extends AbstractNioServer<DatagraphServer> {
 	public <T> StreamConsumer<T> upload(final StreamId streamId, Class<T> type) {
 		BufferSerializer<T> serializer = environment.getInstance(DatagraphSerialization.class).getSerializer(type);
 
-		StreamBinarySerializer<T> streamSerializer = new StreamBinarySerializer<>(eventloop, serializer, 256 * 1024, StreamBinarySerializer.MAX_SIZE, 1000, false);
+		StreamBinarySerializer<T> streamSerializer = new StreamBinarySerializer<>(eventloop, serializer, 256 * 1024,
+				StreamBinarySerializer.MAX_SIZE, 1000, false);
 		streamSerializer.setTag(streamId);
 
 		StreamForwarder<ByteBuf> forwarder = pendingStreams.remove(streamId);
@@ -112,8 +113,9 @@ public final class DatagraphServer extends AbstractNioServer<DatagraphServer> {
 	protected SocketConnection createConnection(SocketChannel socketChannel) {
 		DatagraphSerialization serialization = environment.getInstance(DatagraphSerialization.class);
 		return new StreamMessagingConnection<>(eventloop, socketChannel,
-				new StreamGsonDeserializer<>(eventloop, serialization.gson, DatagraphCommand.class, 256 * 1024),
-				new StreamGsonSerializer<>(eventloop, serialization.gson, DatagraphResponse.class, 256 * 1024, 256 * (1 << 20), 0))
+				new StreamGsonDeserializer<>(eventloop, serialization.gson, DatagraphCommand.class, 10),
+				new StreamGsonSerializer<>(eventloop, serialization.gson, DatagraphResponse.class,
+						256 * 1024, 256 * (1 << 20), 0))
 				.addHandler(DatagraphCommandDownload.class, new MessagingHandler<DatagraphCommandDownload, DatagraphResponse>() {
 					@Override
 					public void onMessage(DatagraphCommandDownload item, Messaging<DatagraphResponse> messaging) {
@@ -128,5 +130,4 @@ public final class DatagraphServer extends AbstractNioServer<DatagraphServer> {
 					}
 				});
 	}
-
 }

@@ -27,7 +27,6 @@ import io.datakernel.datagraph.dataset.LocallySortedDataset;
 import io.datakernel.datagraph.dataset.impl.DatasetListConsumer;
 import io.datakernel.datagraph.graph.DataGraph;
 import io.datakernel.datagraph.graph.Partition;
-import io.datakernel.datagraph.graph.RemotePartition;
 import io.datakernel.datagraph.server.DatagraphClient;
 import io.datakernel.datagraph.server.DatagraphEnvironment;
 import io.datakernel.datagraph.server.DatagraphSerialization;
@@ -97,8 +96,8 @@ public class DatagraphExample {
 				.setListenAddress(address2);
 
 		// Set up partitions
-		Partition partition1 = new RemotePartition(client, address1);
-		Partition partition2 = new RemotePartition(client, address2);
+		Partition partition1 = new Partition(client, address1);
+		Partition partition2 = new Partition(client, address2);
 
 		// Define a task graph for partitions
 		DataGraph graph = new DataGraph(serialization, asList(partition1, partition2));
