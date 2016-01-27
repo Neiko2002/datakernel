@@ -215,6 +215,10 @@ public final class HttpResponse extends HttpMessage {
 		return create(500);
 	}
 
+	public static HttpResponse badRequest400() {
+		return create(400);
+	}
+
 	/**
 	 * Adds the header SET_COOKIE
 	 *

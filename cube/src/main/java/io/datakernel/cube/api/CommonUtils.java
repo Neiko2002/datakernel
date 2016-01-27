@@ -79,6 +79,12 @@ class CommonUtils {
 		return response500;
 	}
 
+	public static HttpResponse response400(String message) {
+		HttpResponse response400 = HttpResponse.badRequest400();
+		response400.body(wrapUTF8(message));
+		return response400;
+	}
+
 	public static HttpResponse response404(String message) {
 		HttpResponse response404 = HttpResponse.notFound404();
 		response404.body(wrapUTF8(message));
