@@ -36,7 +36,7 @@ import java.util.Set;
 import static io.datakernel.codegen.Expressions.*;
 import static io.datakernel.util.ByteBufStrings.wrapUTF8;
 
-class CommonUtils {
+public class CommonUtils {
 	public static FieldGetter generateGetter(DefiningClassLoader classLoader, Class<?> objClass, String propertyName) {
 		return new AsmBuilder<>(classLoader, FieldGetter.class)
 				.method("get", getter(cast(arg(0), objClass), propertyName))

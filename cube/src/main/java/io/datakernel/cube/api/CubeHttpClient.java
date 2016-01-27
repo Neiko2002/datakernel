@@ -51,7 +51,7 @@ public final class CubeHttpClient {
 				.create();
 	}
 
-	public void query(CubeHttpQuery query, final ResultCallback<ReportingQueryResult> callback) {
+	public void query(ReportingQuery query, final ResultCallback<ReportingQueryResult> callback) {
 		httpClient.getHttpResultAsync(buildRequest(query), timeout, new ResultCallback<HttpResponse>() {
 			@Override
 			public void onResult(HttpResponse httpResponse) {
@@ -76,7 +76,7 @@ public final class CubeHttpClient {
 		});
 	}
 
-	private HttpRequest buildRequest(CubeHttpQuery query) {
+	private HttpRequest buildRequest(ReportingQuery query) {
 		Map<String, String> urlParams = new HashMap<>();
 
 		if (query.getDimensions() != null)

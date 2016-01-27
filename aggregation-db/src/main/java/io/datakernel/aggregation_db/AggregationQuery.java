@@ -378,6 +378,11 @@ public final class AggregationQuery {
 		return this;
 	}
 
+	public AggregationQuery ordering(QueryOrdering ordering) {
+		this.orderings.add(ordering);
+		return this;
+	}
+
 	public AggregationQuery orderAsc(String propertyName) {
 		this.orderings.add(QueryOrdering.asc(propertyName));
 		return this;

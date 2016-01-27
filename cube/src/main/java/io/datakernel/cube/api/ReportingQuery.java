@@ -22,7 +22,7 @@ import java.util.List;
 
 import static java.util.Arrays.asList;
 
-public final class CubeHttpQuery {
+public final class ReportingQuery {
 	private List<String> dimensions;
 	private List<String> measures;
 	private List<String> attributes;
@@ -31,12 +31,24 @@ public final class CubeHttpQuery {
 	private Integer limit;
 	private Integer offset;
 
-	public CubeHttpQuery dimensions(List<String> dimensions) {
+	public ReportingQuery(List<String> dimensions, List<String> measures, List<String> attributes,
+	                      AggregationQuery.QueryPredicates filters, AggregationQuery.QueryOrdering sort,
+	                      Integer limit, Integer offset) {
+		this.dimensions = dimensions;
+		this.measures = measures;
+		this.attributes = attributes;
+		this.filters = filters;
+		this.sort = sort;
+		this.limit = limit;
+		this.offset = offset;
+	}
+
+	public ReportingQuery dimensions(List<String> dimensions) {
 		this.dimensions = dimensions;
 		return this;
 	}
 
-	public CubeHttpQuery dimensions(String... dimensions) {
+	public ReportingQuery dimensions(String... dimensions) {
 		return dimensions(asList(dimensions));
 	}
 
@@ -44,12 +56,12 @@ public final class CubeHttpQuery {
 		return dimensions;
 	}
 
-	public CubeHttpQuery measures(List<String> measures) {
+	public ReportingQuery measures(List<String> measures) {
 		this.measures = measures;
 		return this;
 	}
 
-	public CubeHttpQuery measures(String... measures) {
+	public ReportingQuery measures(String... measures) {
 		return measures(asList(measures));
 	}
 
@@ -57,12 +69,12 @@ public final class CubeHttpQuery {
 		return measures;
 	}
 
-	public CubeHttpQuery attributes(List<String> attributes) {
+	public ReportingQuery attributes(List<String> attributes) {
 		this.attributes = attributes;
 		return this;
 	}
 
-	public CubeHttpQuery attributes(String... attributes) {
+	public ReportingQuery attributes(String... attributes) {
 		return measures(asList(attributes));
 	}
 
@@ -70,7 +82,7 @@ public final class CubeHttpQuery {
 		return attributes;
 	}
 
-	public CubeHttpQuery filters(AggregationQuery.QueryPredicates filters) {
+	public ReportingQuery filters(AggregationQuery.QueryPredicates filters) {
 		this.filters = filters;
 		return this;
 	}
@@ -79,7 +91,7 @@ public final class CubeHttpQuery {
 		return filters;
 	}
 
-	public CubeHttpQuery sort(AggregationQuery.QueryOrdering sort) {
+	public ReportingQuery sort(AggregationQuery.QueryOrdering sort) {
 		this.sort = sort;
 		return this;
 	}
@@ -88,7 +100,7 @@ public final class CubeHttpQuery {
 		return sort;
 	}
 
-	public CubeHttpQuery limit(Integer limit) {
+	public ReportingQuery limit(Integer limit) {
 		this.limit = limit;
 		return this;
 	}
@@ -97,7 +109,7 @@ public final class CubeHttpQuery {
 		return limit;
 	}
 
-	public CubeHttpQuery offset(Integer offset) {
+	public ReportingQuery offset(Integer offset) {
 		this.offset = offset;
 		return this;
 	}
