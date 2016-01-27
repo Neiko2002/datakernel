@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Sets.newHashSet;
 import static io.datakernel.cube.api.CommonUtils.*;
 
 public final class DimensionsRequestHandler implements AsyncHttpServlet {
@@ -111,7 +112,7 @@ public final class DimensionsRequestHandler implements AsyncHttpServlet {
 			}
 		}));
 
-		Set<String> availableMeasures = cube.getAvailableMeasures(newArrayList(Iterables.concat(chain, predicateKeys)), measures);
+		Set<String> availableMeasures = cube.getAvailableMeasures(newHashSet(Iterables.concat(chain, predicateKeys)), measures);
 
 		final AggregationQuery query = new AggregationQuery()
 				.keys(chain)

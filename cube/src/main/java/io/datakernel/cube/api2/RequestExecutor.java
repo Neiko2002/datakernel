@@ -16,6 +16,7 @@
 
 package io.datakernel.cube.api2;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.Maps;
 import io.datakernel.aggregation_db.AggregationQuery;
 import io.datakernel.aggregation_db.AggregationStructure;
@@ -37,7 +38,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
-import static com.google.common.collect.Iterables.concat;
+import static com.google.common.base.Predicates.in;
+import static com.google.common.collect.Iterables.*;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Maps.newHashMap;
 import static com.google.common.collect.Maps.newLinkedHashMap;
@@ -83,6 +85,7 @@ public final class RequestExecutor {
 		List<String> queryMeasures;
 		Set<String> storedMeasures = newHashSet();
 		Set<String> computedMeasures = newHashSet();
+		boolean ignoreMeasures;
 
 		List<String> attributes = newArrayList();
 
@@ -97,6 +100,7 @@ public final class RequestExecutor {
 		void execute(ReportingQuery reportingQuery, final ResultCallback<QueryResult> resultCallback) {
 			queryDimensions = reportingQuery.getDimensions();
 			queryMeasures = reportingQuery.getMeasures();
+			ignoreMeasures = reportingQuery.isIgnoreMeasures();
 			predicates = transformPredicates(reportingQuery.getFilters());
 			attributes = reportingQuery.getAttributes();
 			ordering = reportingQuery.getSort();
@@ -141,11 +145,23 @@ public final class RequestExecutor {
 		}
 
 		void processDimensions() {
+			List<String> dimensions = newArrayList();
+
 			for (String dimension : queryDimensions) {
 				if (structure.containsKey(dimension))
-					storedDimensions.add(dimension);
+					dimensions.add(dimension);
 				else
 					throw new QueryException("Cube does not contain dimension with name '" + dimension + "'");
+			}
+
+			Set<String> usedDimensions = newHashSet();
+
+			for (AggregationQuery.QueryPredicate predicate : predicates.values()) {
+				usedDimensions.add(predicate.key);
+			}
+
+			for (String dimension : dimensions) {
+				storedDimensions.addAll(cube.buildDrillDownChain(usedDimensions, dimension));
 			}
 		}
 
@@ -177,16 +193,26 @@ public final class RequestExecutor {
 		}
 
 		void processMeasures() {
+			List<String> measures = newArrayList();
+			List<String> queryComputedMeasures = newArrayList();
+
 			for (String queryMeasure : queryMeasures) {
 				if (structure.containsOutputField(queryMeasure)) {
-					storedMeasures.add(queryMeasure);
+					measures.add(queryMeasure);
 				} else if (reportingConfiguration.containsComputedMeasure(queryMeasure)) {
 					ReportingDSLExpression expression = reportingConfiguration.getExpressionForMeasure(queryMeasure);
-					storedMeasures.addAll(expression.getMeasureDependencies());
-					computedMeasures.add(queryMeasure);
+					measures.addAll(expression.getMeasureDependencies());
+					queryComputedMeasures.add(queryMeasure);
 				} else {
 					throw new QueryException("Cube does not contain measure with name '" + queryMeasure + "'");
 				}
+			}
+
+			storedMeasures = cube.getAvailableMeasures(storedDimensions, measures);
+
+			for (String computedMeasure : queryComputedMeasures) {
+				if (all(reportingConfiguration.getComputedMeasureDependencies(computedMeasure), in(storedMeasures)))
+					computedMeasures.add(computedMeasure);
 			}
 		}
 
@@ -269,8 +295,20 @@ public final class RequestExecutor {
 			resolver.resolve((List) results, resultClass, attributeTypes, resolverKeys, keyConstants);
 			sort(results);
 
-			callback.onResult(new QueryResult(applyLimitAndOffset(results), resultClass,
-					newArrayList(concat(queryDimensions, attributes)), queryMeasures, totalsPlaceholder));
+			List<String> resultMeasures;
+			if (ignoreMeasures)
+				resultMeasures = newArrayList();
+			else
+				resultMeasures = newArrayList(filter(concat(storedMeasures, computedMeasures),
+						new Predicate<String>() {
+							@Override
+							public boolean apply(String measure) {
+								return queryMeasures.contains(measure);
+							}
+						}));
+
+			callback.onResult(new QueryResult(applyLimitAndOffset(results), resultClass, newArrayList(storedDimensions),
+					attributes, resultMeasures, totalsPlaceholder));
 		}
 
 		List applyLimitAndOffset(List<QueryResultPlaceholder> results) {

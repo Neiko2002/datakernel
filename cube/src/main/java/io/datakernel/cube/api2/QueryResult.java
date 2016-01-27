@@ -23,20 +23,23 @@ import java.util.List;
 public final class QueryResult {
 	private final List<Object> records;
 	private final Class recordClass;
-	private final List<String> keys;
-	private final List<String> fields;
 	private final TotalsPlaceholder totals;
 
+	private final List<String> dimensions;
+	private final List<String> attributes;
+	private final List<String> measures;
+
 	public static QueryResult emptyResult() {
-		return new QueryResult(null, null, null, null, null);
+		return new QueryResult(null, null, null, null, null, null);
 	}
 
-	public QueryResult(List<Object> records, Class recordClass, List<String> keys, List<String> fields,
-	                    TotalsPlaceholder totals) {
+	public QueryResult(List<Object> records, Class recordClass, List<String> dimensions, List<String> attributes,
+	                   List<String> measures, TotalsPlaceholder totals) {
 		this.records = records;
 		this.recordClass = recordClass;
-		this.keys = keys;
-		this.fields = fields;
+		this.dimensions = dimensions;
+		this.attributes = attributes;
+		this.measures = measures;
 		this.totals = totals;
 	}
 
@@ -52,12 +55,16 @@ public final class QueryResult {
 		return recordClass;
 	}
 
-	public List<String> getKeys() {
-		return keys;
+	public List<String> getDimensions() {
+		return dimensions;
 	}
 
-	public List<String> getFields() {
-		return fields;
+	public List<String> getAttributes() {
+		return attributes;
+	}
+
+	public List<String> getMeasures() {
+		return measures;
 	}
 
 	public TotalsPlaceholder getTotals() {

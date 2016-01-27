@@ -43,11 +43,12 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		AggregationQuery.QueryOrdering ordering = parseOrdering(request.getParameter("sort"));
 		Integer limit = valueOrNull(request.getParameter("limit"));
 		Integer offset = valueOrNull(request.getParameter("offset"));
+		boolean ignoreMeasures = getBoolean(request.getParameter("ignore-measures"));
 
 		if (dimensions.isEmpty() && attributes.isEmpty())
 			throw new QueryException("At least one dimension or attribute must be specified");
 
-		return new ReportingQuery(dimensions, measures, attributes, predicates, ordering, limit, offset);
+		return new ReportingQuery(dimensions, measures, attributes, predicates, ordering, limit, offset, ignoreMeasures);
 	}
 
 	private AggregationQuery.QueryPredicates parsePredicates(String json) {
@@ -101,5 +102,12 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		if (str == null)
 			return null;
 		return str.isEmpty() ? null : Integer.valueOf(str);
+	}
+
+	private static boolean getBoolean(String str) {
+		if (str == null)
+			return false;
+
+		return str.equals("1") || str.equals("true");
 	}
 }

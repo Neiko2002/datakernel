@@ -464,7 +464,7 @@ public final class Cube {
 		return buildDrillDownChain(Sets.<String>newHashSet(), dimension);
 	}
 
-	public Set<String> getAvailableMeasures(List<String> dimensions, List<String> allMeasures) {
+	public Set<String> getAvailableMeasures(Set<String> dimensions, List<String> allMeasures) {
 		Set<String> availableMeasures = newHashSet();
 		Set<String> allMeasuresSet = newHashSet();
 		allMeasuresSet.addAll(allMeasures);

@@ -44,7 +44,8 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 	@Override
 	public HttpResponse apply(QueryResult result) {
 		String response = result.isEmpty() ? constructEmptyResult() : constructResult(result.getRecords(),
-				result.getRecordClass(), result.getKeys(), result.getFields(), result.getTotals());
+				result.getRecordClass(), result.getDimensions(), result.getAttributes(), result.getMeasures(),
+				result.getTotals());
 		return createResponse(response);
 	}
 
@@ -52,58 +53,76 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		JsonObject jsonResult = new JsonObject();
 		jsonResult.add("records", new JsonArray());
 		jsonResult.add("totals", new JsonObject());
+		jsonResult.add("metadata", new JsonObject());
 		jsonResult.addProperty("count", 0);
 		return jsonResult.toString();
 	}
 
-	private String constructResult(List results, Class<?> resultClass,
-	                               List<String> keys, List<String> fields,
-	                               TotalsPlaceholder totals) {
-		JsonObject jsonResult = new JsonObject();
-		JsonArray jsonRecords = new JsonArray();
-		JsonObject jsonTotals = new JsonObject();
+	private String constructResult(List results, Class<?> resultClass, List<String> dimensions,
+	                               List<String> attributes, List<String> measures, TotalsPlaceholder totals) {
+		JsonObject jsonMetadata = new JsonObject();
 
-		FieldGetter[] fieldGetters = new FieldGetter[fields.size()];
-		for (int i = 0; i < fields.size(); i++) {
-			String field = fields.get(i);
-			fieldGetters[i] = generateGetter(classLoader, resultClass, field);
+		JsonArray jsonMeasures = new JsonArray();
+		FieldGetter[] measureGetters = new FieldGetter[measures.size()];
+		for (int i = 0; i < measures.size(); ++i) {
+			String field = measures.get(i);
+			jsonMeasures.add(new JsonPrimitive(field));
+			measureGetters[i] = generateGetter(classLoader, resultClass, field);
 		}
+		jsonMetadata.add("measures", jsonMeasures);
 
-		FieldGetter[] keyGetters = new FieldGetter[keys.size()];
-		KeyType[] keyTypes = new KeyType[keys.size()];
-		for (int i = 0; i < keys.size(); i++) {
-			String key = keys.get(i);
-			keyGetters[i] = generateGetter(classLoader, resultClass, key);
+		JsonArray jsonDimensions = new JsonArray();
+		FieldGetter[] dimensionGetters = new FieldGetter[dimensions.size()];
+		KeyType[] keyTypes = new KeyType[dimensions.size()];
+		for (int i = 0; i < dimensions.size(); ++i) {
+			String key = dimensions.get(i);
+			jsonDimensions.add(new JsonPrimitive(key));
+			dimensionGetters[i] = generateGetter(classLoader, resultClass, key);
 			keyTypes[i] = structure.getKeyType(key);
 		}
+		jsonMetadata.add("dimensions", jsonDimensions);
 
+		JsonArray jsonAttributes = new JsonArray();
+		FieldGetter[] attributeGetters = new FieldGetter[attributes.size()];
+		for (int i = 0; i < attributes.size(); ++i) {
+			String attribute = attributes.get(i);
+			jsonAttributes.add(new JsonPrimitive(attribute));
+			attributeGetters[i] = generateGetter(classLoader, resultClass, attribute);
+		}
+		jsonMetadata.add("attributes", jsonAttributes);
+
+		JsonArray jsonRecords = new JsonArray();
 		for (Object result : results) {
 			JsonObject resultJsonObject = new JsonObject();
 
-			for (int j = 0; j < keys.size(); j++) {
-				Object value = keyGetters[j].get(result);
-				JsonElement json;
-				if (keyTypes[j] == null)
-					json = value == null ? null : new JsonPrimitive(value.toString());
-				else
-					json = keyTypes[j].toJson(value);
-				resultJsonObject.add(keys.get(j), json);
+			for (int j = 0; j < dimensions.size(); ++j) {
+				Object value = dimensionGetters[j].get(result);
+				JsonElement json = keyTypes[j].toJson(value);
+				resultJsonObject.add(dimensions.get(j), json);
 			}
 
-			for (int j = 0; j < fields.size(); j++) {
-				resultJsonObject.add(fields.get(j), new JsonPrimitive((Number) fieldGetters[j].get(result)));
+			for (int j = 0; j < attributes.size(); ++j) {
+				Object value = attributeGetters[j].get(result);
+				resultJsonObject.add(attributes.get(j), value == null ? null : new JsonPrimitive(value.toString()));
+			}
+
+			for (int j = 0; j < measures.size(); ++j) {
+				resultJsonObject.add(measures.get(j), new JsonPrimitive((Number) measureGetters[j].get(result)));
 			}
 
 			jsonRecords.add(resultJsonObject);
 		}
 
-		for (String field : fields) {
+		JsonObject jsonTotals = new JsonObject();
+		for (String field : measures) {
 			Object totalFieldValue = generateGetter(classLoader, totals.getClass(), field).get(totals);
 			jsonTotals.add(field, new JsonPrimitive((Number) totalFieldValue));
 		}
 
+		JsonObject jsonResult = new JsonObject();
 		jsonResult.add("records", jsonRecords);
 		jsonResult.add("totals", jsonTotals);
+		jsonResult.add("metadata", jsonMetadata);
 		jsonResult.addProperty("count", results.size());
 
 		return jsonResult.toString();

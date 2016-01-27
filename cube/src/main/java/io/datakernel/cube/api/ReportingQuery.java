@@ -16,6 +16,7 @@
 
 package io.datakernel.cube.api;
 
+import com.google.common.base.MoreObjects;
 import io.datakernel.aggregation_db.AggregationQuery;
 
 import java.util.List;
@@ -30,10 +31,11 @@ public final class ReportingQuery {
 	private AggregationQuery.QueryOrdering sort;
 	private Integer limit;
 	private Integer offset;
+	private boolean ignoreMeasures;
 
 	public ReportingQuery(List<String> dimensions, List<String> measures, List<String> attributes,
 	                      AggregationQuery.QueryPredicates filters, AggregationQuery.QueryOrdering sort,
-	                      Integer limit, Integer offset) {
+	                      Integer limit, Integer offset, boolean ignoreMeasures) {
 		this.dimensions = dimensions;
 		this.measures = measures;
 		this.attributes = attributes;
@@ -41,6 +43,7 @@ public final class ReportingQuery {
 		this.sort = sort;
 		this.limit = limit;
 		this.offset = offset;
+		this.ignoreMeasures = ignoreMeasures;
 	}
 
 	public ReportingQuery dimensions(List<String> dimensions) {
@@ -116,5 +119,27 @@ public final class ReportingQuery {
 
 	public Integer getOffset() {
 		return offset;
+	}
+
+	public ReportingQuery ignoreMeasures(boolean ignoreMeasures) {
+		this.ignoreMeasures = ignoreMeasures;
+		return this;
+	}
+
+	public boolean isIgnoreMeasures() {
+		return ignoreMeasures;
+	}
+
+	@Override
+	public String toString() {
+		return MoreObjects.toStringHelper(this)
+				.add("dimensions", dimensions)
+				.add("measures", measures)
+				.add("attributes", attributes)
+				.add("filters", filters)
+				.add("sort", sort)
+				.add("limit", limit)
+				.add("offset", offset)
+				.toString();
 	}
 }
