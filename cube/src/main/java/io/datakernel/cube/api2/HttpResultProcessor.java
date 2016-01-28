@@ -108,7 +108,7 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 
 			for (int n = 0; n < dimensions.size(); ++n) {
 				Object value = dimensionGetters[n].get(result);
-				JsonElement json = keyTypes[n].toJson(value);
+				JsonElement json = new JsonPrimitive(keyTypes[n].toString(value));
 				resultJsonObject.add(dimensions.get(n), json);
 			}
 

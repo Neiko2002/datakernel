@@ -19,10 +19,7 @@ package io.datakernel.cube.api;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
+import com.google.gson.*;
 import io.datakernel.aggregation_db.AggregationQuery;
 import io.datakernel.aggregation_db.AggregationStructure;
 import io.datakernel.aggregation_db.api.QueryException;
@@ -165,7 +162,7 @@ public final class DimensionsRequestHandler implements AsyncHttpServlet {
 			JsonObject resultJsonObject = new JsonObject();
 
 			for (int i = 0; i < resultKeys.size(); i++) {
-				resultJsonObject.add(resultKeys.get(i), keyTypes[i].toJson(keyGetters[i].get(result)));
+				resultJsonObject.add(resultKeys.get(i), new JsonPrimitive(keyTypes[i].toString(keyGetters[i].get(result))));
 			}
 
 			jsonResults.add(resultJsonObject);

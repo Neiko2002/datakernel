@@ -416,7 +416,7 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 					if (keyTypes[j] == null)
 						json = value == null ? null : new JsonPrimitive(value.toString());
 					else
-						json = keyTypes[j].toJson(value);
+						json = new JsonPrimitive(keyTypes[j].toString(value));
 					resultJsonObject.add(resultKeys.get(j), json);
 				}
 
