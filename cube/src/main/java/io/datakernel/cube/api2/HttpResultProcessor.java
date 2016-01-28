@@ -43,23 +43,16 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 
 	@Override
 	public HttpResponse apply(QueryResult result) {
-		String response = result.isEmpty() ? constructEmptyResult() : constructResult(result.getRecords(),
-				result.getRecordClass(), result.getDimensions(), result.getAttributes(), result.getMeasures(),
-				result.getTotals());
+		String response = constructResult(result.getRecords(), result.getRecordClass(), result.getTotals(),
+				result.getDimensions(), result.getAttributes(), result.getMeasures(),
+				result.getFilterAttributesPlaceholder(), result.getFilterAttributes(), result.getFilterAttributesClass());
 		return createResponse(response);
 	}
 
-	private String constructEmptyResult() {
-		JsonObject jsonResult = new JsonObject();
-		jsonResult.add("records", new JsonArray());
-		jsonResult.add("totals", new JsonObject());
-		jsonResult.add("metadata", new JsonObject());
-		jsonResult.addProperty("count", 0);
-		return jsonResult.toString();
-	}
-
-	private String constructResult(List results, Class<?> resultClass, List<String> dimensions,
-	                               List<String> attributes, List<String> measures, TotalsPlaceholder totals) {
+	private String constructResult(List results, Class<?> resultClass, TotalsPlaceholder totals,
+	                               List<String> dimensions, List<String> attributes, List<String> measures,
+	                               Object filterAttributesPlaceholder, List<String> filterAttributes,
+	                               Class filterAttributesClass) {
 		JsonObject jsonMetadata = new JsonObject();
 
 		JsonArray jsonMeasures = new JsonArray();
@@ -90,6 +83,13 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 			attributeGetters[i] = generateGetter(classLoader, resultClass, attribute);
 		}
 		jsonMetadata.add("attributes", jsonAttributes);
+
+		JsonObject jsonFilterAttributes = new JsonObject();
+		for (String attribute : filterAttributes) {
+			Object resolvedAttribute = generateGetter(classLoader, filterAttributesClass, attribute).get(filterAttributesPlaceholder);
+			jsonFilterAttributes.add(attribute, resolvedAttribute == null ? null : new JsonPrimitive(resolvedAttribute.toString()));
+		}
+		jsonMetadata.add("filterAttributes", jsonFilterAttributes);
 
 		JsonArray jsonRecords = new JsonArray();
 		for (Object result : results) {

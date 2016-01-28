@@ -174,14 +174,6 @@ public final class InfoRequestHandler implements AsyncHttpServlet {
 		return jsonResult.toString();
 	}
 
-	private Object instantiate(Class<?> attributesClass) {
-		try {
-			return attributesClass.newInstance();
-		} catch (InstantiationException | IllegalAccessException e) {
-			throw new RuntimeException(e);
-		}
-	}
-
 	private Class<?> createAttributesClass(Map<String, Class<?>> attributeTypes) {
 		AsmBuilder<Object> builder = new AsmBuilder<>(classLoader, Object.class);
 		for (Map.Entry<String, Class<?>> nameEntry : attributeTypes.entrySet()) {

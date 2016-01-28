@@ -100,4 +100,12 @@ public class CommonUtils {
 		Type type = new TypeToken<List<String>>() {}.getType();
 		return gson.fromJson(json, type);
 	}
+
+	public static Object instantiate(Class<?> clazz) {
+		try {
+			return clazz.newInstance();
+		} catch (InstantiationException | IllegalAccessException e) {
+			throw new RuntimeException(e);
+		}
+	}
 }

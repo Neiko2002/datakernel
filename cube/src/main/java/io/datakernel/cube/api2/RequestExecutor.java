@@ -45,6 +45,8 @@ import static com.google.common.collect.Maps.newHashMap;
 import static com.google.common.collect.Maps.newLinkedHashMap;
 import static com.google.common.collect.Sets.newHashSet;
 import static io.datakernel.codegen.Expressions.*;
+import static io.datakernel.cube.api.CommonUtils.instantiate;
+import static java.util.Collections.singletonList;
 
 public final class RequestExecutor {
 	private static final Logger logger = LoggerFactory.getLogger(RequestExecutor.class);
@@ -74,6 +76,9 @@ public final class RequestExecutor {
 		Map<AttributeResolver, List<String>> resolverKeys = newLinkedHashMap();
 		Map<String, Class<?>> attributeTypes = newLinkedHashMap();
 		Map<String, Object> keyConstants = newHashMap();
+
+		List<String> filterAttributes = newArrayList();
+		Map<String, Class<?>> filterAttributeTypes = newLinkedHashMap();
 
 		List<String> queryDimensions = newArrayList();
 		Set<String> storedDimensions = newHashSet();
@@ -171,10 +176,10 @@ public final class RequestExecutor {
 				if (resolver == null)
 					throw new QueryException("Cube does not contain resolver for '" + attribute + "'");
 
-				List<String> key = reportingConfiguration.getKeyForResolver(resolver);
+				List<String> keyComponents = reportingConfiguration.getKeyForResolver(resolver);
 
 				boolean usingStoredDimension = false;
-				for (String keyComponent : key) {
+				for (String keyComponent : keyComponents) {
 					if (predicates != null && predicates.get(keyComponent) instanceof AggregationQuery.QueryPredicateEq) {
 						if (usingStoredDimension)
 							throw new QueryException("Incorrect filter: using 'equals' predicate when prefix of this compound key is not fully defined");
@@ -187,8 +192,14 @@ public final class RequestExecutor {
 					}
 				}
 
-				resolverKeys.put(resolver, key);
-				attributeTypes.put(attribute, reportingConfiguration.getAttributeType(attribute));
+				resolverKeys.put(resolver, keyComponents);
+				Class<?> attributeType = reportingConfiguration.getAttributeType(attribute);
+				attributeTypes.put(attribute, attributeType);
+
+				if (all(keyComponents, in(predicates.keySet()))) {
+					filterAttributes.add(attribute);
+					filterAttributeTypes.put(attribute, attributeType);
+				}
 			}
 		}
 
@@ -285,14 +296,14 @@ public final class RequestExecutor {
 
 		@SuppressWarnings("unchecked")
 		void processResults(List<QueryResultPlaceholder> results, ResultCallback<QueryResult> callback) {
-			if (results.isEmpty()) {
-				callback.onResult(QueryResult.emptyResult());
-				return;
-			}
-
 			TotalsPlaceholder totalsPlaceholder = computeTotals(results);
+			Class<?> filterAttributesClass = createFilterAttributesClass();
+			Object filterAttributesPlaceholder = instantiate(filterAttributesClass);
+
 			computeMeasures(results);
 			resolver.resolve((List) results, resultClass, attributeTypes, resolverKeys, keyConstants);
+			resolver.resolve(singletonList(filterAttributesPlaceholder), filterAttributesClass, filterAttributeTypes,
+					resolverKeys, keyConstants);
 			sort(results);
 
 			List<String> resultMeasures;
@@ -307,8 +318,9 @@ public final class RequestExecutor {
 							}
 						}));
 
-			callback.onResult(new QueryResult(applyLimitAndOffset(results), resultClass, newArrayList(storedDimensions),
-					attributes, resultMeasures, totalsPlaceholder));
+			callback.onResult(new QueryResult(applyLimitAndOffset(results), resultClass, totalsPlaceholder, attributes,
+					resultMeasures, newArrayList(storedDimensions), filterAttributesPlaceholder, filterAttributes,
+					filterAttributesClass));
 		}
 
 		List applyLimitAndOffset(List<QueryResultPlaceholder> results) {
@@ -376,6 +388,14 @@ public final class RequestExecutor {
 			if (comparator != null) {
 				Collections.sort(results, comparator);
 			}
+		}
+
+		Class<?> createFilterAttributesClass() {
+			AsmBuilder<Object> builder = new AsmBuilder<>(classLoader, Object.class);
+			for (String filterAttribute : filterAttributes) {
+				builder.field(filterAttribute, attributeTypes.get(filterAttribute));
+			}
+			return builder.defineClass();
 		}
 	}
 }

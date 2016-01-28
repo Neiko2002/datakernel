@@ -16,6 +16,7 @@
 
 package io.datakernel.cube.api2;
 
+import com.google.common.base.MoreObjects;
 import io.datakernel.cube.api.TotalsPlaceholder;
 
 import java.util.List;
@@ -23,28 +24,29 @@ import java.util.List;
 public final class QueryResult {
 	private final List<Object> records;
 	private final Class recordClass;
+
 	private final TotalsPlaceholder totals;
 
 	private final List<String> dimensions;
 	private final List<String> attributes;
 	private final List<String> measures;
 
-	public static QueryResult emptyResult() {
-		return new QueryResult(null, null, null, null, null, null);
-	}
+	private final Object filterAttributesPlaceholder;
+	private final List<String> filterAttributes;
+	private final Class filterAttributesClass;
 
-	public QueryResult(List<Object> records, Class recordClass, List<String> dimensions, List<String> attributes,
-	                   List<String> measures, TotalsPlaceholder totals) {
+	public QueryResult(List<Object> records, Class recordClass, TotalsPlaceholder totals, List<String> attributes,
+	                   List<String> measures, List<String> dimensions, Object filterAttributesPlaceholder,
+	                   List<String> filterAttributes, Class filterAttributesClass) {
 		this.records = records;
 		this.recordClass = recordClass;
 		this.dimensions = dimensions;
 		this.attributes = attributes;
 		this.measures = measures;
 		this.totals = totals;
-	}
-
-	public boolean isEmpty() {
-		return records == null;
+		this.filterAttributesPlaceholder = filterAttributesPlaceholder;
+		this.filterAttributes = filterAttributes;
+		this.filterAttributesClass = filterAttributesClass;
 	}
 
 	public List<Object> getRecords() {
@@ -69,5 +71,32 @@ public final class QueryResult {
 
 	public TotalsPlaceholder getTotals() {
 		return totals;
+	}
+
+	public Object getFilterAttributesPlaceholder() {
+		return filterAttributesPlaceholder;
+	}
+
+	public List<String> getFilterAttributes() {
+		return filterAttributes;
+	}
+
+	public Class getFilterAttributesClass() {
+		return filterAttributesClass;
+	}
+
+	@Override
+	public String toString() {
+		return MoreObjects.toStringHelper(this)
+				.add("records", records)
+				.add("recordClass", recordClass)
+				.add("totals", totals)
+				.add("dimensions", dimensions)
+				.add("attributes", attributes)
+				.add("measures", measures)
+				.add("filterAttributesPlaceholder", filterAttributesPlaceholder)
+				.add("filterAttributes", filterAttributes)
+				.add("filterAttributesClass", filterAttributesClass)
+				.toString();
 	}
 }
