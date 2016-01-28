@@ -20,6 +20,7 @@ import com.google.common.base.MoreObjects;
 import io.datakernel.cube.api.TotalsPlaceholder;
 
 import java.util.List;
+import java.util.Set;
 
 public final class QueryResult {
 	private final List<Object> records;
@@ -27,6 +28,7 @@ public final class QueryResult {
 
 	private final TotalsPlaceholder totals;
 
+	private final Set<List<String>> drillDowns;
 	private final List<String> dimensions;
 	private final List<String> attributes;
 	private final List<String> measures;
@@ -35,15 +37,17 @@ public final class QueryResult {
 	private final List<String> filterAttributes;
 	private final Class filterAttributesClass;
 
-	public QueryResult(List<Object> records, Class recordClass, TotalsPlaceholder totals, List<String> attributes,
-	                   List<String> measures, List<String> dimensions, Object filterAttributesPlaceholder,
-	                   List<String> filterAttributes, Class filterAttributesClass) {
+	public QueryResult(List<Object> records, Class recordClass, TotalsPlaceholder totals,
+	                   Set<List<String>> drillDowns, List<String> dimensions, List<String> attributes,
+	                   List<String> measures, Object filterAttributesPlaceholder, List<String> filterAttributes,
+	                   Class filterAttributesClass) {
 		this.records = records;
 		this.recordClass = recordClass;
+		this.totals = totals;
+		this.drillDowns = drillDowns;
 		this.dimensions = dimensions;
 		this.attributes = attributes;
 		this.measures = measures;
-		this.totals = totals;
 		this.filterAttributesPlaceholder = filterAttributesPlaceholder;
 		this.filterAttributes = filterAttributes;
 		this.filterAttributesClass = filterAttributesClass;
@@ -57,6 +61,14 @@ public final class QueryResult {
 		return recordClass;
 	}
 
+	public TotalsPlaceholder getTotals() {
+		return totals;
+	}
+
+	public Set<List<String>> getDrillDowns() {
+		return drillDowns;
+	}
+
 	public List<String> getDimensions() {
 		return dimensions;
 	}
@@ -67,10 +79,6 @@ public final class QueryResult {
 
 	public List<String> getMeasures() {
 		return measures;
-	}
-
-	public TotalsPlaceholder getTotals() {
-		return totals;
 	}
 
 	public Object getFilterAttributesPlaceholder() {

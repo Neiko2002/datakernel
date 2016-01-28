@@ -28,6 +28,7 @@ import io.datakernel.cube.api.TotalsPlaceholder;
 import io.datakernel.http.HttpResponse;
 
 import java.util.List;
+import java.util.Set;
 
 import static io.datakernel.cube.api.CommonUtils.createResponse;
 import static io.datakernel.cube.api.CommonUtils.generateGetter;
@@ -44,15 +45,15 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 	@Override
 	public HttpResponse apply(QueryResult result) {
 		String response = constructResult(result.getRecords(), result.getRecordClass(), result.getTotals(),
-				result.getDimensions(), result.getAttributes(), result.getMeasures(),
+				result.getDrillDowns(), result.getDimensions(), result.getAttributes(), result.getMeasures(),
 				result.getFilterAttributesPlaceholder(), result.getFilterAttributes(), result.getFilterAttributesClass());
 		return createResponse(response);
 	}
 
-	private String constructResult(List results, Class<?> resultClass, TotalsPlaceholder totals,
-	                               List<String> dimensions, List<String> attributes, List<String> measures,
-	                               Object filterAttributesPlaceholder, List<String> filterAttributes,
-	                               Class filterAttributesClass) {
+	private String constructResult(List results, Class resultClass, TotalsPlaceholder totals,
+	                               Set<List<String>> drillDowns, List<String> dimensions, List<String> attributes,
+	                               List<String> measures, Object filterAttributesPlaceholder,
+	                               List<String> filterAttributes, Class filterAttributesClass) {
 		JsonObject jsonMetadata = new JsonObject();
 
 		JsonArray jsonMeasures = new JsonArray();
@@ -91,23 +92,33 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		}
 		jsonMetadata.add("filterAttributes", jsonFilterAttributes);
 
+		JsonArray jsonDrillDowns = new JsonArray();
+		for (List<String> drillDown : drillDowns) {
+			JsonArray jsonDrillDown = new JsonArray();
+			for (String dimension : drillDown) {
+				jsonDrillDown.add(new JsonPrimitive(dimension));
+			}
+			jsonDrillDowns.add(jsonDrillDown);
+		}
+		jsonMetadata.add("drillDowns", jsonDrillDowns);
+
 		JsonArray jsonRecords = new JsonArray();
 		for (Object result : results) {
 			JsonObject resultJsonObject = new JsonObject();
 
-			for (int j = 0; j < dimensions.size(); ++j) {
-				Object value = dimensionGetters[j].get(result);
-				JsonElement json = keyTypes[j].toJson(value);
-				resultJsonObject.add(dimensions.get(j), json);
+			for (int n = 0; n < dimensions.size(); ++n) {
+				Object value = dimensionGetters[n].get(result);
+				JsonElement json = keyTypes[n].toJson(value);
+				resultJsonObject.add(dimensions.get(n), json);
 			}
 
-			for (int j = 0; j < attributes.size(); ++j) {
-				Object value = attributeGetters[j].get(result);
-				resultJsonObject.add(attributes.get(j), value == null ? null : new JsonPrimitive(value.toString()));
+			for (int m = 0; m < attributes.size(); ++m) {
+				Object value = attributeGetters[m].get(result);
+				resultJsonObject.add(attributes.get(m), value == null ? null : new JsonPrimitive(value.toString()));
 			}
 
-			for (int j = 0; j < measures.size(); ++j) {
-				resultJsonObject.add(measures.get(j), new JsonPrimitive((Number) measureGetters[j].get(result)));
+			for (int k = 0; k < measures.size(); ++k) {
+				resultJsonObject.add(measures.get(k), new JsonPrimitive((Number) measureGetters[k].get(result)));
 			}
 
 			jsonRecords.add(resultJsonObject);

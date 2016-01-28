@@ -58,7 +58,7 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 			predicates = gson.fromJson(json, AggregationQuery.QueryPredicates.class);
 		}
 
-		return predicates;
+		return predicates == null ? new AggregationQuery.QueryPredicates() : predicates;
 	}
 
 	private List<String> parseMeasures(String json) {
@@ -105,9 +105,6 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 	}
 
 	private static boolean getBoolean(String str) {
-		if (str == null)
-			return false;
-
-		return str.equals("1") || str.equals("true");
+		return str != null && (str.equals("1") || str.equals("true"));
 	}
 }

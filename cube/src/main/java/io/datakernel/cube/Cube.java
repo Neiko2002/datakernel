@@ -413,8 +413,8 @@ public final class Cube {
 		});
 	}
 
-	public AvailableDrillDowns getAvailableDrillDowns(Set<String> dimensions, AggregationQuery.QueryPredicates predicates,
-	                                                  Set<String> measures) {
+	public DrillDowns getAvailableDrillDowns(Set<String> dimensions, AggregationQuery.QueryPredicates predicates,
+	                                         Set<String> measures) {
 		Set<String> availableMeasures = newHashSet();
 		Set<String> availableDimensions = newHashSet();
 		Set<String> eqPredicateDimensions = newHashSet();
@@ -449,7 +449,7 @@ public final class Cube {
 
 		Set<List<String>> drillDownChains = structure.getChildParentRelationships().buildDrillDownChains(dimensions, availableDimensions);
 
-		return new AvailableDrillDowns(drillDownChains, availableMeasures);
+		return new DrillDowns(drillDownChains, availableMeasures);
 	}
 
 	public Set<String> findChildrenDimensions(String parent) {

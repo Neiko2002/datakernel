@@ -28,6 +28,7 @@ import io.datakernel.codegen.AsmBuilder;
 import io.datakernel.codegen.ExpressionComparatorNullable;
 import io.datakernel.codegen.ExpressionSequence;
 import io.datakernel.codegen.utils.DefiningClassLoader;
+import io.datakernel.cube.DrillDowns;
 import io.datakernel.cube.Cube;
 import io.datakernel.cube.api.*;
 import io.datakernel.eventloop.Eventloop;
@@ -83,8 +84,11 @@ public final class RequestExecutor {
 		List<String> queryDimensions = newArrayList();
 		Set<String> storedDimensions = newHashSet();
 
+		DrillDowns drillDowns;
+
 		AggregationQuery query = new AggregationQuery();
 
+		AggregationQuery.QueryPredicates queryPredicates;
 		Map<String, AggregationQuery.QueryPredicate> predicates;
 
 		List<String> queryMeasures;
@@ -106,7 +110,8 @@ public final class RequestExecutor {
 			queryDimensions = reportingQuery.getDimensions();
 			queryMeasures = reportingQuery.getMeasures();
 			ignoreMeasures = reportingQuery.isIgnoreMeasures();
-			predicates = transformPredicates(reportingQuery.getFilters());
+			queryPredicates = reportingQuery.getFilters();
+			predicates = transformPredicates(queryPredicates);
 			attributes = reportingQuery.getAttributes();
 			ordering = reportingQuery.getSort();
 			limit = reportingQuery.getLimit();
@@ -182,7 +187,8 @@ public final class RequestExecutor {
 				for (String keyComponent : keyComponents) {
 					if (predicates != null && predicates.get(keyComponent) instanceof AggregationQuery.QueryPredicateEq) {
 						if (usingStoredDimension)
-							throw new QueryException("Incorrect filter: using 'equals' predicate when prefix of this compound key is not fully defined");
+							throw new QueryException("Incorrect filter: using 'equals' predicate when prefix of this " +
+									"compound key is not fully defined");
 						else
 							keyConstants.put(keyComponent,
 									((AggregationQuery.QueryPredicateEq) predicates.get(keyComponent)).value);
@@ -204,7 +210,7 @@ public final class RequestExecutor {
 		}
 
 		void processMeasures() {
-			List<String> measures = newArrayList();
+			Set<String> measures = newHashSet();
 			List<String> queryComputedMeasures = newArrayList();
 
 			for (String queryMeasure : queryMeasures) {
@@ -219,7 +225,8 @@ public final class RequestExecutor {
 				}
 			}
 
-			storedMeasures = cube.getAvailableMeasures(storedDimensions, measures);
+			drillDowns = cube.getAvailableDrillDowns(storedDimensions, queryPredicates, measures);
+			storedMeasures = drillDowns.getMeasures();
 
 			for (String computedMeasure : queryComputedMeasures) {
 				if (all(reportingConfiguration.getComputedMeasureDependencies(computedMeasure), in(storedMeasures)))
@@ -318,9 +325,9 @@ public final class RequestExecutor {
 							}
 						}));
 
-			callback.onResult(new QueryResult(applyLimitAndOffset(results), resultClass, totalsPlaceholder, attributes,
-					resultMeasures, newArrayList(storedDimensions), filterAttributesPlaceholder, filterAttributes,
-					filterAttributesClass));
+			callback.onResult(new QueryResult(applyLimitAndOffset(results), resultClass, totalsPlaceholder,
+					drillDowns.getDrillDowns(), newArrayList(storedDimensions), attributes, resultMeasures,
+					filterAttributesPlaceholder, filterAttributes, filterAttributesClass));
 		}
 
 		List applyLimitAndOffset(List<QueryResultPlaceholder> results) {
@@ -390,7 +397,7 @@ public final class RequestExecutor {
 			}
 		}
 
-		Class<?> createFilterAttributesClass() {
+		Class createFilterAttributesClass() {
 			AsmBuilder<Object> builder = new AsmBuilder<>(classLoader, Object.class);
 			for (String filterAttribute : filterAttributes) {
 				builder.field(filterAttribute, attributeTypes.get(filterAttribute));
