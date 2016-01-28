@@ -27,6 +27,7 @@ public final class QueryResult {
 	private final Class recordClass;
 
 	private final TotalsPlaceholder totals;
+	private final int count;
 
 	private final Set<List<String>> drillDowns;
 	private final List<String> dimensions;
@@ -38,12 +39,13 @@ public final class QueryResult {
 	private final Class filterAttributesClass;
 
 	public QueryResult(List<Object> records, Class recordClass, TotalsPlaceholder totals,
-	                   Set<List<String>> drillDowns, List<String> dimensions, List<String> attributes,
+	                   int count, Set<List<String>> drillDowns, List<String> dimensions, List<String> attributes,
 	                   List<String> measures, Object filterAttributesPlaceholder, List<String> filterAttributes,
 	                   Class filterAttributesClass) {
 		this.records = records;
 		this.recordClass = recordClass;
 		this.totals = totals;
+		this.count = count;
 		this.drillDowns = drillDowns;
 		this.dimensions = dimensions;
 		this.attributes = attributes;
@@ -63,6 +65,10 @@ public final class QueryResult {
 
 	public TotalsPlaceholder getTotals() {
 		return totals;
+	}
+
+	public int getCount() {
+		return count;
 	}
 
 	public Set<List<String>> getDrillDowns() {
@@ -99,6 +105,8 @@ public final class QueryResult {
 				.add("records", records)
 				.add("recordClass", recordClass)
 				.add("totals", totals)
+				.add("count", count)
+				.add("drillDowns", drillDowns)
 				.add("dimensions", dimensions)
 				.add("attributes", attributes)
 				.add("measures", measures)

@@ -44,11 +44,13 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		Integer limit = valueOrNull(request.getParameter("limit"));
 		Integer offset = valueOrNull(request.getParameter("offset"));
 		boolean ignoreMeasures = getBoolean(request.getParameter("ignore-measures"));
+		String searchString = request.getParameter("search");
 
 		if (dimensions.isEmpty() && attributes.isEmpty())
 			throw new QueryException("At least one dimension or attribute must be specified");
 
-		return new ReportingQuery(dimensions, measures, attributes, predicates, ordering, limit, offset, ignoreMeasures);
+		return new ReportingQuery(dimensions, measures, attributes, predicates, ordering, limit, offset, ignoreMeasures,
+				searchString);
 	}
 
 	private AggregationQuery.QueryPredicates parsePredicates(String json) {

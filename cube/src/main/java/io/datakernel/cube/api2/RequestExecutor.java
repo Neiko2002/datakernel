@@ -24,12 +24,10 @@ import io.datakernel.aggregation_db.api.QueryException;
 import io.datakernel.aggregation_db.fieldtype.FieldType;
 import io.datakernel.aggregation_db.keytype.KeyType;
 import io.datakernel.async.ResultCallback;
-import io.datakernel.codegen.AsmBuilder;
-import io.datakernel.codegen.ExpressionComparatorNullable;
-import io.datakernel.codegen.ExpressionSequence;
+import io.datakernel.codegen.*;
 import io.datakernel.codegen.utils.DefiningClassLoader;
-import io.datakernel.cube.DrillDowns;
 import io.datakernel.cube.Cube;
+import io.datakernel.cube.DrillDowns;
 import io.datakernel.cube.api.*;
 import io.datakernel.eventloop.Eventloop;
 import io.datakernel.stream.StreamConsumers;
@@ -105,6 +103,7 @@ public final class RequestExecutor {
 		Comparator<QueryResultPlaceholder> comparator;
 		Integer limit;
 		Integer offset;
+		String searchString;
 
 		void execute(ReportingQuery reportingQuery, final ResultCallback<QueryResult> resultCallback) {
 			queryDimensions = reportingQuery.getDimensions();
@@ -116,6 +115,7 @@ public final class RequestExecutor {
 			ordering = reportingQuery.getSort();
 			limit = reportingQuery.getLimit();
 			offset = reportingQuery.getOffset();
+			searchString = reportingQuery.getSearchString();
 
 			processAttributes();
 			processDimensions();
@@ -303,7 +303,6 @@ public final class RequestExecutor {
 
 		@SuppressWarnings("unchecked")
 		void processResults(List<QueryResultPlaceholder> results, ResultCallback<QueryResult> callback) {
-			TotalsPlaceholder totalsPlaceholder = computeTotals(results);
 			Class<?> filterAttributesClass = createFilterAttributesClass();
 			Object filterAttributesPlaceholder = instantiate(filterAttributesClass);
 
@@ -311,7 +310,9 @@ public final class RequestExecutor {
 			resolver.resolve((List) results, resultClass, attributeTypes, resolverKeys, keyConstants);
 			resolver.resolve(singletonList(filterAttributesPlaceholder), filterAttributesClass, filterAttributeTypes,
 					resolverKeys, keyConstants);
+			results = performSearch(results);
 			sort(results);
+			TotalsPlaceholder totalsPlaceholder = computeTotals(results);
 
 			List<String> resultMeasures;
 			if (ignoreMeasures)
@@ -325,12 +326,22 @@ public final class RequestExecutor {
 							}
 						}));
 
+			int count = results.size();
 			callback.onResult(new QueryResult(applyLimitAndOffset(results), resultClass, totalsPlaceholder,
-					drillDowns.getDrillDowns(), newArrayList(storedDimensions), attributes, resultMeasures,
+					count, drillDowns.getDrillDowns(), newArrayList(storedDimensions), attributes, resultMeasures,
 					filterAttributesPlaceholder, filterAttributes, filterAttributesClass));
 		}
 
-		List applyLimitAndOffset(List<QueryResultPlaceholder> results) {
+		List performSearch(List results) {
+			if (searchString == null)
+				return results;
+
+			Predicate searchPredicate = createSearchPredicate(searchString,
+					newArrayList(concat(storedDimensions, attributes)), resultClass);
+			return newArrayList(filter(results, searchPredicate));
+		}
+
+		List applyLimitAndOffset(List results) {
 			int start = offset == null ? 0 : offset;
 			int end;
 
@@ -341,7 +352,7 @@ public final class RequestExecutor {
 			else
 				end = start + limit;
 
-			return (List) results.subList(start, end);
+			return results.subList(start, end);
 		}
 
 		TotalsPlaceholder computeTotals(List<QueryResultPlaceholder> results) {
@@ -403,6 +414,25 @@ public final class RequestExecutor {
 				builder.field(filterAttribute, attributeTypes.get(filterAttribute));
 			}
 			return builder.defineClass();
+		}
+
+		Predicate createSearchPredicate(String searchString, List<String> properties, Class recordClass) {
+			AsmBuilder<Predicate> builder = new AsmBuilder<>(classLoader, Predicate.class);
+
+			PredicateDefOr predicate = or();
+
+			for (String property : properties) {
+				Expression propertyValue = cast(getter(cast(arg(0), recordClass), property), Object.class);
+
+				predicate.add(cmpEq(
+						choice(ifNull(propertyValue),
+								value(false),
+								call(call(propertyValue, "toString"), "contains", cast(value(searchString), CharSequence.class))),
+						value(true)));
+			}
+
+			builder.method("apply", boolean.class, singletonList(Object.class), predicate);
+			return builder.newInstance();
 		}
 	}
 }

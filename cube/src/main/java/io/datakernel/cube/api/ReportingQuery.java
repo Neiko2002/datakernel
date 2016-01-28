@@ -32,10 +32,11 @@ public final class ReportingQuery {
 	private Integer limit;
 	private Integer offset;
 	private boolean ignoreMeasures;
+	private String searchString;
 
 	public ReportingQuery(List<String> dimensions, List<String> measures, List<String> attributes,
 	                      AggregationQuery.QueryPredicates filters, AggregationQuery.QueryOrdering sort,
-	                      Integer limit, Integer offset, boolean ignoreMeasures) {
+	                      Integer limit, Integer offset, boolean ignoreMeasures, String searchString) {
 		this.dimensions = dimensions;
 		this.measures = measures;
 		this.attributes = attributes;
@@ -44,6 +45,7 @@ public final class ReportingQuery {
 		this.limit = limit;
 		this.offset = offset;
 		this.ignoreMeasures = ignoreMeasures;
+		this.searchString = searchString;
 	}
 
 	public ReportingQuery dimensions(List<String> dimensions) {
@@ -130,6 +132,15 @@ public final class ReportingQuery {
 		return ignoreMeasures;
 	}
 
+	public ReportingQuery search(String searchString) {
+		this.searchString = searchString;
+		return this;
+	}
+
+	public String getSearchString() {
+		return searchString;
+	}
+
 	@Override
 	public String toString() {
 		return MoreObjects.toStringHelper(this)
@@ -140,6 +151,8 @@ public final class ReportingQuery {
 				.add("sort", sort)
 				.add("limit", limit)
 				.add("offset", offset)
+				.add("ignoreMeasures", ignoreMeasures)
+				.add("searchString", searchString)
 				.toString();
 	}
 }

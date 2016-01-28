@@ -45,12 +45,13 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 	@Override
 	public HttpResponse apply(QueryResult result) {
 		String response = constructResult(result.getRecords(), result.getRecordClass(), result.getTotals(),
-				result.getDrillDowns(), result.getDimensions(), result.getAttributes(), result.getMeasures(),
-				result.getFilterAttributesPlaceholder(), result.getFilterAttributes(), result.getFilterAttributesClass());
+				result.getCount(), result.getDrillDowns(), result.getDimensions(), result.getAttributes(),
+				result.getMeasures(), result.getFilterAttributesPlaceholder(), result.getFilterAttributes(),
+				result.getFilterAttributesClass());
 		return createResponse(response);
 	}
 
-	private String constructResult(List results, Class resultClass, TotalsPlaceholder totals,
+	private String constructResult(List results, Class resultClass, TotalsPlaceholder totals, int count,
 	                               Set<List<String>> drillDowns, List<String> dimensions, List<String> attributes,
 	                               List<String> measures, Object filterAttributesPlaceholder,
 	                               List<String> filterAttributes, Class filterAttributesClass) {
@@ -134,7 +135,7 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		jsonResult.add("records", jsonRecords);
 		jsonResult.add("totals", jsonTotals);
 		jsonResult.add("metadata", jsonMetadata);
-		jsonResult.addProperty("count", results.size());
+		jsonResult.addProperty("count", count);
 
 		return jsonResult.toString();
 	}
