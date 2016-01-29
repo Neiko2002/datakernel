@@ -17,7 +17,6 @@
 package io.datakernel.cube.api;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import io.datakernel.aggregation_db.*;
 import io.datakernel.aggregation_db.fieldtype.FieldType;
 import io.datakernel.aggregation_db.fieldtype.FieldTypeDouble;
@@ -56,7 +55,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -232,10 +230,10 @@ public class ReportingTest {
 		ReportingQuery query = new ReportingQuery()
 				.dimensions("date", "campaign")
 				.measures("impressions", "clicks", "ctr", "revenue")
-				.filters(new AggregationQuery.QueryPredicates()
+				.filters(new AggregationQuery.Predicates()
 						.eq("banner", 1)
 						.between("date", 1, 2))
-				.sort(AggregationQuery.QueryOrdering.asc("ctr"));
+				.sort(AggregationQuery.Ordering.asc("ctr"));
 
 		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];
 		startBlocking(httpClient);
@@ -322,7 +320,7 @@ public class ReportingTest {
 				.attributes("advertiserName")
 				.measures("impressions")
 				.limit(0)
-				.filters(new AggregationQuery.QueryPredicates().eq("advertiser", 1));
+				.filters(new AggregationQuery.Predicates().eq("advertiser", 1));
 
 		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];
 		startBlocking(httpClient);

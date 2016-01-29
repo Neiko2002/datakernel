@@ -27,8 +27,8 @@ public final class ReportingQuery {
 	private List<String> dimensions;
 	private List<String> measures;
 	private List<String> attributes;
-	private AggregationQuery.QueryPredicates filters;
-	private AggregationQuery.QueryOrdering sort;
+	private AggregationQuery.Predicates filters;
+	private AggregationQuery.Ordering sort;
 	private Integer limit;
 	private Integer offset;
 	private boolean ignoreMeasures;
@@ -38,7 +38,7 @@ public final class ReportingQuery {
 	}
 
 	public ReportingQuery(List<String> dimensions, List<String> measures, List<String> attributes,
-	                      AggregationQuery.QueryPredicates filters, AggregationQuery.QueryOrdering sort,
+	                      AggregationQuery.Predicates filters, AggregationQuery.Ordering sort,
 	                      Integer limit, Integer offset, boolean ignoreMeasures, String searchString) {
 		this.dimensions = dimensions;
 		this.measures = measures;
@@ -90,21 +90,21 @@ public final class ReportingQuery {
 		return attributes;
 	}
 
-	public ReportingQuery filters(AggregationQuery.QueryPredicates filters) {
+	public ReportingQuery filters(AggregationQuery.Predicates filters) {
 		this.filters = filters;
 		return this;
 	}
 
-	public AggregationQuery.QueryPredicates getFilters() {
+	public AggregationQuery.Predicates getFilters() {
 		return filters;
 	}
 
-	public ReportingQuery sort(AggregationQuery.QueryOrdering sort) {
+	public ReportingQuery sort(AggregationQuery.Ordering sort) {
 		this.sort = sort;
 		return this;
 	}
 
-	public AggregationQuery.QueryOrdering getSort() {
+	public AggregationQuery.Ordering getSort() {
 		return sort;
 	}
 

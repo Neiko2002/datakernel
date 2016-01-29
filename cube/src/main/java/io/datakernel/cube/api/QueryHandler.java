@@ -62,9 +62,9 @@ public final class QueryHandler implements AsyncHttpServlet {
 		List<String> measures = getListOfStrings(gson, request.getParameter("measures"));
 		String predicatesJson = request.getParameter("filters");
 
-		AggregationQuery.QueryPredicates queryPredicates = null;
+		AggregationQuery.Predicates queryPredicates = null;
 		if (predicatesJson != null) {
-			queryPredicates = gson.fromJson(predicatesJson, AggregationQuery.QueryPredicates.class);
+			queryPredicates = gson.fromJson(predicatesJson, AggregationQuery.Predicates.class);
 		}
 
 		final AggregationQuery finalQuery = new AggregationQuery()

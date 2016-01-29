@@ -86,8 +86,8 @@ public final class RequestExecutor {
 
 		AggregationQuery query = new AggregationQuery();
 
-		AggregationQuery.QueryPredicates queryPredicates;
-		Map<String, AggregationQuery.QueryPredicate> predicates;
+		AggregationQuery.Predicates queryPredicates;
+		Map<String, AggregationQuery.Predicate> predicates;
 
 		List<String> queryMeasures;
 		Set<String> storedMeasures = newHashSet();
@@ -96,7 +96,7 @@ public final class RequestExecutor {
 
 		List<String> attributes = newArrayList();
 
-		AggregationQuery.QueryOrdering ordering;
+		AggregationQuery.Ordering ordering;
 		boolean additionalSortingRequired;
 
 		Class<QueryResultPlaceholder> resultClass;
@@ -150,8 +150,8 @@ public final class RequestExecutor {
 			});
 		}
 
-		Map<String, AggregationQuery.QueryPredicate> transformPredicates(AggregationQuery.QueryPredicates predicates) {
-			return predicates == null ? Maps.<String, AggregationQuery.QueryPredicate>newHashMap() : predicates.asMap();
+		Map<String, AggregationQuery.Predicate> transformPredicates(AggregationQuery.Predicates predicates) {
+			return predicates == null ? Maps.<String, AggregationQuery.Predicate>newHashMap() : predicates.asMap();
 		}
 
 		void processDimensions() {
@@ -166,7 +166,7 @@ public final class RequestExecutor {
 
 			Set<String> usedDimensions = newHashSet();
 
-			for (AggregationQuery.QueryPredicate predicate : predicates.values()) {
+			for (AggregationQuery.Predicate predicate : predicates.values()) {
 				usedDimensions.add(predicate.key);
 			}
 
@@ -185,13 +185,13 @@ public final class RequestExecutor {
 
 				boolean usingStoredDimension = false;
 				for (String keyComponent : keyComponents) {
-					if (predicates != null && predicates.get(keyComponent) instanceof AggregationQuery.QueryPredicateEq) {
+					if (predicates != null && predicates.get(keyComponent) instanceof AggregationQuery.PredicateEq) {
 						if (usingStoredDimension)
 							throw new QueryException("Incorrect filter: using 'equals' predicate when prefix of this " +
 									"compound key is not fully defined");
 						else
 							keyConstants.put(keyComponent,
-									((AggregationQuery.QueryPredicateEq) predicates.get(keyComponent)).value);
+									((AggregationQuery.PredicateEq) predicates.get(keyComponent)).value);
 					} else {
 						storedDimensions.add(keyComponent);
 						usingStoredDimension = true;
@@ -424,7 +424,7 @@ public final class RequestExecutor {
 		}
 
 		Predicate createSearchPredicate(String searchString, List<String> properties, Class recordClass) {
-			AsmBuilder<Predicate> builder = new AsmBuilder<>(classLoader, Predicate.class);
+			AsmBuilder<Predicate> builder = new AsmBuilder<>(classLoader, com.google.common.base.Predicate.class);
 
 			PredicateDefOr predicate = or();
 

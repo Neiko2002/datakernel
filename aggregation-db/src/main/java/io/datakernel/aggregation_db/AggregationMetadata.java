@@ -20,10 +20,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
-import io.datakernel.aggregation_db.AggregationQuery.QueryPredicate;
-import io.datakernel.aggregation_db.AggregationQuery.QueryPredicateBetween;
-import io.datakernel.aggregation_db.AggregationQuery.QueryPredicateEq;
-import io.datakernel.aggregation_db.AggregationQuery.QueryPredicates;
 import io.datakernel.aggregation_db.keytype.KeyType;
 import io.datakernel.aggregation_db.keytype.KeyTypeEnumerable;
 
@@ -44,7 +40,7 @@ public class AggregationMetadata {
 	private final ImmutableList<String> keys;
 	private final ImmutableList<String> inputFields;
 	private final ImmutableList<String> outputFields;
-	private final QueryPredicates predicates;
+	private final AggregationQuery.Predicates predicates;
 
 	private final RangeTree<PrimaryKey, AggregationChunk>[] prefixRanges;
 
@@ -60,7 +56,7 @@ public class AggregationMetadata {
 	}
 
 	public AggregationMetadata(String id, Collection<String> keys, Collection<String> inputFields,
-	                           QueryPredicates predicates) {
+	                           AggregationQuery.Predicates predicates) {
 		this(id, keys, inputFields, inputFields, predicates);
 	}
 
@@ -75,7 +71,7 @@ public class AggregationMetadata {
 	 */
 	@SuppressWarnings("unchecked")
 	public AggregationMetadata(String id, Collection<String> keys, Collection<String> inputFields,
-	                           Collection<String> outputFields, QueryPredicates predicates) {
+	                           Collection<String> outputFields, AggregationQuery.Predicates predicates) {
 		this.id = id;
 		this.predicates = predicates;
 		this.keys = ImmutableList.copyOf(keys);
@@ -95,14 +91,14 @@ public class AggregationMetadata {
 		return this.predicates != null;
 	}
 
-	public boolean matchQueryPredicates(QueryPredicates predicates) {
+	public boolean matchQueryPredicates(AggregationQuery.Predicates predicates) {
 		if (this.predicates == null)
 			return true;
 
-		Map<String, QueryPredicate> aggregationPredicateMap = this.predicates.asMap();
-		Map<String, QueryPredicate> predicateMap = predicates.asMap();
+		Map<String, AggregationQuery.Predicate> aggregationPredicateMap = this.predicates.asMap();
+		Map<String, AggregationQuery.Predicate> predicateMap = predicates.asMap();
 
-		for (Map.Entry<String, QueryPredicate> predicateEntry : predicateMap.entrySet()) {
+		for (Map.Entry<String, AggregationQuery.Predicate> predicateEntry : predicateMap.entrySet()) {
 			String predicateKey = predicateEntry.getKey();
 			if (aggregationPredicateMap.get(predicateKey) != null && !aggregationPredicateMap.get(predicateKey).equals(predicateEntry.getValue()))
 				return false;
@@ -125,30 +121,30 @@ public class AggregationMetadata {
 		if (this.predicates == null)
 			return new AggregationFilteringResult(false);
 
-		Map<String, QueryPredicate> queryPredicates = query.getPredicates().asMap();
-		Map<String, QueryPredicate> aggregationPredicates = this.predicates.asMap();
+		Map<String, AggregationQuery.Predicate> queryPredicates = query.getPredicates().asMap();
+		Map<String, AggregationQuery.Predicate> aggregationPredicates = this.predicates.asMap();
 		List<String> appliedPredicateKeys = newArrayList();
 
-		for (Map.Entry<String, QueryPredicate> aggregationPredicatesEntry : aggregationPredicates.entrySet()) {
+		for (Map.Entry<String, AggregationQuery.Predicate> aggregationPredicatesEntry : aggregationPredicates.entrySet()) {
 			String aggregationPredicateKey = aggregationPredicatesEntry.getKey();
-			QueryPredicate queryPredicate = queryPredicates.get(aggregationPredicateKey);
-			QueryPredicate aggregationPredicate = aggregationPredicatesEntry.getValue();
+			AggregationQuery.Predicate queryPredicate = queryPredicates.get(aggregationPredicateKey);
+			AggregationQuery.Predicate aggregationPredicate = aggregationPredicatesEntry.getValue();
 			if (queryPredicate == null)
 				return new AggregationFilteringResult(false); // no corresponding query predicate for this aggregation predicate
 
 			KeyType keyType = structure.getKeyType(aggregationPredicateKey);
 
-			if (queryPredicate instanceof QueryPredicateEq) {
-				Object queryPredicateEq = ((QueryPredicateEq) queryPredicate).value;
-				if (aggregationPredicate instanceof QueryPredicateEq) {
-					Object aggregationPredicateEq = ((QueryPredicateEq) aggregationPredicate).value;
+			if (queryPredicate instanceof AggregationQuery.PredicateEq) {
+				Object queryPredicateEq = ((AggregationQuery.PredicateEq) queryPredicate).value;
+				if (aggregationPredicate instanceof AggregationQuery.PredicateEq) {
+					Object aggregationPredicateEq = ((AggregationQuery.PredicateEq) aggregationPredicate).value;
 					if (keyType.compare(queryPredicateEq, aggregationPredicateEq) != 0)
 						return new AggregationFilteringResult(false);
 					else
 						appliedPredicateKeys.add(aggregationPredicateKey); // no longer need this predicate as it is already applied
-				} else if (aggregationPredicate instanceof QueryPredicateBetween) {
-					Object aggregationPredicateFrom = ((QueryPredicateBetween) aggregationPredicate).from;
-					Object aggregationPredicateTo = ((QueryPredicateBetween) aggregationPredicate).to;
+				} else if (aggregationPredicate instanceof AggregationQuery.PredicateBetween) {
+					Object aggregationPredicateFrom = ((AggregationQuery.PredicateBetween) aggregationPredicate).from;
+					Object aggregationPredicateTo = ((AggregationQuery.PredicateBetween) aggregationPredicate).to;
 					// queryPredicateEq ∉ [aggregationPredicateFrom; aggregationPredicateTo]
 					if (keyType.compare(queryPredicateEq, aggregationPredicateFrom) < 0
 							|| keyType.compare(queryPredicateEq, aggregationPredicateTo) > 0)
@@ -156,10 +152,10 @@ public class AggregationMetadata {
 					// else aggregation may contain the requested value, but we still need to apply the predicate for this key
 				} else
 					return new AggregationFilteringResult(false); // unsupported predicate type
-			} else if (queryPredicate instanceof QueryPredicateBetween) {
-				Object queryPredicateFrom = ((QueryPredicateBetween) queryPredicate).from;
-				Object queryPredicateTo = ((QueryPredicateBetween) queryPredicate).to;
-				if (aggregationPredicate instanceof QueryPredicateEq) {
+			} else if (queryPredicate instanceof AggregationQuery.PredicateBetween) {
+				Object queryPredicateFrom = ((AggregationQuery.PredicateBetween) queryPredicate).from;
+				Object queryPredicateTo = ((AggregationQuery.PredicateBetween) queryPredicate).to;
+				if (aggregationPredicate instanceof AggregationQuery.PredicateEq) {
 					/* If we are requesting the value of a key in range and this aggregation only contains records
 					for the specific value of a key, this aggregations does not satisfy a predicate.
 					Example: this aggregation contains records for 15 June 2015.
@@ -167,9 +163,9 @@ public class AggregationMetadata {
 					So we reject this aggregation hoping some other aggregation has all the requested data.
 					 */
 					return new AggregationFilteringResult(false);
-				} else if (aggregationPredicate instanceof QueryPredicateBetween) {
-					Object aggregationPredicateFrom = ((QueryPredicateBetween) aggregationPredicate).from;
-					Object aggregationPredicateTo = ((QueryPredicateBetween) aggregationPredicate).to;
+				} else if (aggregationPredicate instanceof AggregationQuery.PredicateBetween) {
+					Object aggregationPredicateFrom = ((AggregationQuery.PredicateBetween) aggregationPredicate).from;
+					Object aggregationPredicateTo = ((AggregationQuery.PredicateBetween) aggregationPredicate).to;
 					// [queryPredicateFrom; queryPredicateTo] ⊄ [aggregationPredicateFrom; aggregationPredicateTo]
 					if (keyType.compare(queryPredicateFrom, aggregationPredicateFrom) < 0 ||
 							keyType.compare(queryPredicateTo, aggregationPredicateTo) > 0) {
@@ -220,7 +216,7 @@ public class AggregationMetadata {
 		return outputFields;
 	}
 
-	public QueryPredicates getAggregationPredicates() {
+	public AggregationQuery.Predicates getAggregationPredicates() {
 		return this.predicates;
 	}
 
@@ -244,11 +240,11 @@ public class AggregationMetadata {
 
 		List<String> remainingFields = newArrayList(filter(query.getResultFields(), not(in(outputFields))));
 
-		ArrayList<QueryPredicate> equalsPredicates = newArrayList(filter(query.getPredicates().asCollection(),
-				new Predicate<QueryPredicate>() {
+		ArrayList<AggregationQuery.Predicate> equalsPredicates = newArrayList(filter(query.getPredicates().asCollection(),
+				new Predicate<AggregationQuery.Predicate>() {
 					@Override
-					public boolean apply(QueryPredicate predicate) {
-						return predicate instanceof QueryPredicateEq;
+					public boolean apply(AggregationQuery.Predicate predicate) {
+						return predicate instanceof AggregationQuery.PredicateEq;
 					}
 				}));
 
@@ -356,11 +352,11 @@ public class AggregationMetadata {
 //	}
 
 	public List<AggregationChunk> queryByPredicates(AggregationStructure structure, final Map<Long, AggregationChunk> chunks,
-	                                                QueryPredicates predicates) {
+	                                                AggregationQuery.Predicates predicates) {
 		return queryByFilteringListOfChunks(predicates);
 	}
 
-	private List<AggregationChunk> queryByFilteringListOfChunks(QueryPredicates predicates) {
+	private List<AggregationChunk> queryByFilteringListOfChunks(AggregationQuery.Predicates predicates) {
 		PrimaryKey minQueryKey = rangeScanMinPrimaryKeyPrefix(predicates);
 		PrimaryKey maxQueryKey = rangeScanMaxPrimaryKeyPrefix(predicates);
 
@@ -373,17 +369,17 @@ public class AggregationMetadata {
 		return newArrayList(filteredChunks);
 	}
 
-	private PrimaryKey rangeScanMaxPrimaryKeyPrefix(QueryPredicates predicates) {
+	private PrimaryKey rangeScanMaxPrimaryKeyPrefix(AggregationQuery.Predicates predicates) {
 		List<Object> keyPrefixList = new ArrayList<>();
 
 		for (String field : keys) {
-			QueryPredicate predicate = predicates.asUnmodifiableMap().get(field);
+			AggregationQuery.Predicate predicate = predicates.asUnmodifiableMap().get(field);
 
-			if (predicate instanceof QueryPredicateEq) {
-				Object value = ((QueryPredicateEq) predicate).value;
+			if (predicate instanceof AggregationQuery.PredicateEq) {
+				Object value = ((AggregationQuery.PredicateEq) predicate).value;
 				keyPrefixList.add(value);
-			} else if (predicate instanceof QueryPredicateBetween) {
-				Object to = ((QueryPredicateBetween) predicate).to;
+			} else if (predicate instanceof AggregationQuery.PredicateBetween) {
+				Object to = ((AggregationQuery.PredicateBetween) predicate).to;
 				keyPrefixList.add(to);
 			} else
 				break;
@@ -392,16 +388,16 @@ public class AggregationMetadata {
 		return PrimaryKey.ofList(keyPrefixList);
 	}
 
-	private PrimaryKey rangeScanMinPrimaryKeyPrefix(QueryPredicates predicates) {
+	private PrimaryKey rangeScanMinPrimaryKeyPrefix(AggregationQuery.Predicates predicates) {
 		List<Object> keyPrefixList = new ArrayList<>();
 
 		for (String key : keys) {
-			QueryPredicate predicate = predicates.asUnmodifiableMap().get(key);
-			if (predicate instanceof QueryPredicateEq) {
-				Object value = ((QueryPredicateEq) predicate).value;
+			AggregationQuery.Predicate predicate = predicates.asUnmodifiableMap().get(key);
+			if (predicate instanceof AggregationQuery.PredicateEq) {
+				Object value = ((AggregationQuery.PredicateEq) predicate).value;
 				keyPrefixList.add(value);
-			} else if (predicate instanceof QueryPredicateBetween) {
-				Object from = ((QueryPredicateBetween) predicate).from;
+			} else if (predicate instanceof AggregationQuery.PredicateBetween) {
+				Object from = ((AggregationQuery.PredicateBetween) predicate).from;
 				keyPrefixList.add(from);
 			} else
 				break;
@@ -412,14 +408,14 @@ public class AggregationMetadata {
 
 	/* BETWEEN predicate optimization */
 	private List<AggregationChunk> queryByEqualsPredicates(Map<Long, AggregationChunk> chunks,
-	                                                       QueryPredicates predicates) {
+	                                                       AggregationQuery.Predicates predicates) {
 		final PrimaryKey minQueryKey = rangeScanMinPrimaryKeyPrefix(predicates);
 		final PrimaryKey maxQueryKey = rangeScanMaxPrimaryKeyPrefix(predicates);
 		return rangeQuery(chunks, minQueryKey, maxQueryKey);
 	}
 
 	private List<AggregationChunk> queryByConvertingBetweenPredicatesToEqualsQueries(AggregationStructure structure,
-	                                                                                 List<QueryPredicate> predicates,
+	                                                                                 List<AggregationQuery.Predicate> predicates,
 	                                                                                 Map<Long, AggregationChunk> chunks) {
 		List<PrimaryKey> equalsKeys = primaryKeysForEqualsQueries(structure, predicates);
 		Set<AggregationChunk> resultChunks = Sets.newHashSet();
@@ -431,7 +427,7 @@ public class AggregationMetadata {
 		return new ArrayList<>(resultChunks);
 	}
 
-	private List<PrimaryKey> primaryKeysForEqualsQueries(AggregationStructure structure, List<QueryPredicate> predicates) {
+	private List<PrimaryKey> primaryKeysForEqualsQueries(AggregationStructure structure, List<AggregationQuery.Predicate> predicates) {
 		int numberOfPredicateKeys = predicates.size();
 
 		List<Set<Object>> betweenSets = new ArrayList<>(numberOfPredicateKeys);
@@ -482,18 +478,18 @@ public class AggregationMetadata {
 		return keyPrefixes;
 	}
 
-	private void transformPredicates(List<QueryPredicate> predicates, AggregationStructure structure, List<Set<Object>> betweenSets,
+	private void transformPredicates(List<AggregationQuery.Predicate> predicates, AggregationStructure structure, List<Set<Object>> betweenSets,
 	                                 List<Object> equalsList, boolean[] betweenPredicatePositions) {
 		for (int j = 0; j < predicates.size(); ++j) {
 			String field = keys.get(j);
-			QueryPredicate predicate = predicates.get(j);
+			AggregationQuery.Predicate predicate = predicates.get(j);
 			KeyType keyType = structure.getKeyType(field);
 
-			if (predicate instanceof QueryPredicateEq) {
-				equalsList.add(((QueryPredicateEq) predicate).value);
-			} else if (predicate instanceof QueryPredicateBetween) {
-				Object from = ((QueryPredicateBetween) predicate).from;
-				Object to = ((QueryPredicateBetween) predicate).to;
+			if (predicate instanceof AggregationQuery.PredicateEq) {
+				equalsList.add(((AggregationQuery.PredicateEq) predicate).value);
+			} else if (predicate instanceof AggregationQuery.PredicateBetween) {
+				Object from = ((AggregationQuery.PredicateBetween) predicate).from;
+				Object to = ((AggregationQuery.PredicateBetween) predicate).to;
 
 				Set<Object> set = new LinkedHashSet<>();
 
@@ -508,7 +504,7 @@ public class AggregationMetadata {
 		}
 	}
 
-	private boolean shouldConvertBetweenPredicatesToEqualsQueries(List<QueryPredicate> betweenPredicates,
+	private boolean shouldConvertBetweenPredicatesToEqualsQueries(List<AggregationQuery.Predicate> betweenPredicates,
 	                                                              AggregationStructure structure) {
 		if (!areAllKeyTypesEnumerable(betweenPredicates, structure))
 			return false;
@@ -518,11 +514,11 @@ public class AggregationMetadata {
 		return numberOfEqualsQueries <= EQUALS_QUERIES_THRESHOLD;
 	}
 
-	private List<QueryPredicate> getPrefixPredicates(QueryPredicates predicates) {
-		List<QueryPredicate> prefixPredicates = newArrayList();
+	private List<AggregationQuery.Predicate> getPrefixPredicates(AggregationQuery.Predicates predicates) {
+		List<AggregationQuery.Predicate> prefixPredicates = newArrayList();
 
 		for (String key : keys) {
-			QueryPredicate predicateForKey = predicates.asUnmodifiableMap().get(key);
+			AggregationQuery.Predicate predicateForKey = predicates.asUnmodifiableMap().get(key);
 			if (predicateForKey != null)
 				prefixPredicates.add(predicateForKey);
 			else
@@ -532,11 +528,11 @@ public class AggregationMetadata {
 		return prefixPredicates;
 	}
 
-	private long countNumberOfEqualsQueries(List<QueryPredicate> betweenPredicates, AggregationStructure structure) {
+	private long countNumberOfEqualsQueries(List<AggregationQuery.Predicate> betweenPredicates, AggregationStructure structure) {
 		long queries = 0;
 
-		for (QueryPredicate predicate : betweenPredicates) {
-			QueryPredicateBetween predicateBetween = (QueryPredicateBetween) predicate;
+		for (AggregationQuery.Predicate predicate : betweenPredicates) {
+			AggregationQuery.PredicateBetween predicateBetween = (AggregationQuery.PredicateBetween) predicate;
 			KeyType keyType = structure.getKeyType(predicate.key);
 			long difference = ((KeyTypeEnumerable) keyType).difference(predicateBetween.to, predicateBetween.from) + 1;
 
@@ -549,8 +545,8 @@ public class AggregationMetadata {
 		return queries;
 	}
 
-	private boolean areAllKeyTypesEnumerable(List<QueryPredicate> predicates, AggregationStructure structure) {
-		for (QueryPredicate predicate : predicates) {
+	private boolean areAllKeyTypesEnumerable(List<AggregationQuery.Predicate> predicates, AggregationStructure structure) {
+		for (AggregationQuery.Predicate predicate : predicates) {
 			if (!isEnumerable(predicate.key, structure)) {
 				return false;
 			}
@@ -567,11 +563,11 @@ public class AggregationMetadata {
 		return new ArrayList<>(index.getRange(minPrimaryKey, maxPrimaryKey));
 	}
 
-	private Predicate<QueryPredicate> isBetweenPredicate() {
-		return new Predicate<QueryPredicate>() {
+	private Predicate isBetweenPredicate() {
+		return new Predicate<AggregationQuery.Predicate>() {
 			@Override
-			public boolean apply(QueryPredicate predicate) {
-				return predicate instanceof QueryPredicateBetween;
+			public boolean apply(AggregationQuery.Predicate predicate) {
+				return predicate instanceof AggregationQuery.PredicateBetween;
 			}
 		};
 	}

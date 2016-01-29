@@ -170,7 +170,7 @@ public final class Cube {
 		return consumer(inputClass, dimensions, measures, null, callback);
 	}
 
-	private Collection<Aggregation> findAggregationsForWriting(final AggregationQuery.QueryPredicates predicates) {
+	private Collection<Aggregation> findAggregationsForWriting(final AggregationQuery.Predicates predicates) {
 		Collection<Aggregation> allAggregations = aggregations.values();
 
 		if (predicates == null)
@@ -203,7 +203,7 @@ public final class Cube {
 	 * @return consumer for streaming data to cube
 	 */
 	public <T> StreamConsumer<T> consumer(Class<T> inputClass, List<String> dimensions, List<String> measures,
-	                                      AggregationQuery.QueryPredicates predicates,
+	                                      AggregationQuery.Predicates predicates,
 	                                      final ResultCallback<Multimap<AggregationMetadata, AggregationChunk.NewChunk>> callback) {
 		logger.trace("Started building StreamConsumer for populating cube {}.", this);
 
@@ -294,13 +294,13 @@ public final class Cube {
 	}
 
 	public AggregationQuery getQueryWithoutAppliedPredicateKeys(AggregationQuery query, List<String> appliedPredicateKeys) {
-		Map<String, AggregationQuery.QueryPredicate> filteredQueryPredicates = new LinkedHashMap<>();
-		for (Map.Entry<String, AggregationQuery.QueryPredicate> queryPredicateEntry : query.getPredicates().asMap().entrySet()) {
+		Map<String, AggregationQuery.Predicate> filteredQueryPredicates = new LinkedHashMap<>();
+		for (Map.Entry<String, AggregationQuery.Predicate> queryPredicateEntry : query.getPredicates().asMap().entrySet()) {
 			if (!appliedPredicateKeys.contains(queryPredicateEntry.getKey()))
 				filteredQueryPredicates.put(queryPredicateEntry.getKey(), queryPredicateEntry.getValue());
 		}
 
-		return new AggregationQuery(query.getResultKeys(), query.getResultFields(), AggregationQuery.QueryPredicates.fromMap(filteredQueryPredicates), query.getOrderings());
+		return new AggregationQuery(query.getResultKeys(), query.getResultFields(), AggregationQuery.Predicates.fromMap(filteredQueryPredicates), query.getOrderings());
 	}
 
 	/**
@@ -433,7 +433,7 @@ public final class Cube {
 		});
 	}
 
-	public DrillDowns getAvailableDrillDowns(Set<String> dimensions, AggregationQuery.QueryPredicates predicates,
+	public DrillDowns getAvailableDrillDowns(Set<String> dimensions, AggregationQuery.Predicates predicates,
 	                                         Set<String> measures) {
 		Set<String> availableMeasures = newHashSet();
 		Set<String> availableDimensions = newHashSet();
@@ -441,8 +441,8 @@ public final class Cube {
 
 		AggregationQuery query = new AggregationQuery(newArrayList(dimensions), newArrayList(measures), predicates);
 
-		for (AggregationQuery.QueryPredicate predicate : predicates.asCollection()) {
-			if (predicate instanceof AggregationQuery.QueryPredicateEq) {
+		for (AggregationQuery.Predicate predicate : predicates.asCollection()) {
+			if (predicate instanceof AggregationQuery.PredicateEq) {
 				eqPredicateDimensions.add(predicate.key);
 			}
 		}

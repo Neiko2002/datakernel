@@ -36,7 +36,7 @@ public final class CubeHttpServer {
 
 	public static MiddlewareServlet createServlet(Cube cube, Eventloop eventloop, DefiningClassLoader classLoader) {
 		final Gson gson = new GsonBuilder()
-				.registerTypeAdapter(AggregationQuery.QueryPredicates.class, new QueryPredicatesGsonSerializer(cube.getStructure()))
+				.registerTypeAdapter(AggregationQuery.Predicates.class, new QueryPredicatesGsonSerializer(cube.getStructure()))
 				.create();
 
 		MiddlewareServlet servlet = new MiddlewareServlet();

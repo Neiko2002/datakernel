@@ -85,8 +85,8 @@ public final class InfoRequestHandler implements AsyncHttpServlet {
 		Set<String> attributes = attributesJson == null ? Sets.<String>newHashSet() : getSetOfStrings(gson, attributesJson);
 		String filtersJson = request.getParameter("filters");
 
-		AggregationQuery.QueryPredicates queryPredicates = filtersJson == null ? new AggregationQuery.QueryPredicates() : gson.fromJson(filtersJson, AggregationQuery.QueryPredicates.class);
-		Map<String, AggregationQuery.QueryPredicate> predicates = queryPredicates.asMap();
+		AggregationQuery.Predicates queryPredicates = filtersJson == null ? new AggregationQuery.Predicates() : gson.fromJson(filtersJson, AggregationQuery.Predicates.class);
+		Map<String, AggregationQuery.Predicate> predicates = queryPredicates.asMap();
 
 		Set<String> storedMeasures = newHashSet();
 		for (String measure : measures) {
@@ -111,11 +111,11 @@ public final class InfoRequestHandler implements AsyncHttpServlet {
 
 			boolean missedPrefix = false;
 			for (String keyComponent : key) {
-				if (predicates.get(keyComponent) instanceof AggregationQuery.QueryPredicateEq) {
+				if (predicates.get(keyComponent) instanceof AggregationQuery.PredicateEq) {
 					if (missedPrefix)
 						throw new QueryException("Prefix of this compound key is not fully defined");
 					else
-						keyConstants.put(keyComponent, ((AggregationQuery.QueryPredicateEq) predicates.get(keyComponent)).value);
+						keyConstants.put(keyComponent, ((AggregationQuery.PredicateEq) predicates.get(keyComponent)).value);
 				} else {
 					missedPrefix = true;
 				}

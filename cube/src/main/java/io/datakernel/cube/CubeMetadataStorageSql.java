@@ -73,7 +73,7 @@ public final class CubeMetadataStorageSql implements CubeMetadataStorage {
 
 		Splitter splitter = Splitter.on(' ').omitEmptyStrings();
 		Gson gson = new GsonBuilder()
-				.registerTypeAdapter(AggregationQuery.QueryPredicates.class, new QueryPredicatesGsonSerializer(structure))
+				.registerTypeAdapter(AggregationQuery.Predicates.class, new QueryPredicatesGsonSerializer(structure))
 				.create();
 
 		List<AggregationMetadata> aggregationMetadatas = newArrayList();
@@ -82,7 +82,7 @@ public final class CubeMetadataStorageSql implements CubeMetadataStorage {
 					newArrayList(splitter.split(record.getKeys())),
 					newArrayList(splitter.split(record.getInputfields())),
 					newArrayList(splitter.split(record.getOutputfields())),
-					gson.fromJson(record.getPredicates(), AggregationQuery.QueryPredicates.class));
+					gson.fromJson(record.getPredicates(), AggregationQuery.Predicates.class));
 			aggregationMetadatas.add(aggregationMetadata);
 		}
 
@@ -103,7 +103,7 @@ public final class CubeMetadataStorageSql implements CubeMetadataStorage {
 	private void saveAggregations(DSLContext jooq, AggregationStructure structure, Collection<Aggregation> aggregations) {
 		Joiner joiner = Joiner.on(' ');
 		Gson gson = new GsonBuilder()
-				.registerTypeAdapter(AggregationQuery.QueryPredicates.class, new QueryPredicatesGsonSerializer(structure))
+				.registerTypeAdapter(AggregationQuery.Predicates.class, new QueryPredicatesGsonSerializer(structure))
 				.create();
 		for (Aggregation aggregation : aggregations) {
 			jooq.insertInto(AGGREGATION_DB_STRUCTURE)

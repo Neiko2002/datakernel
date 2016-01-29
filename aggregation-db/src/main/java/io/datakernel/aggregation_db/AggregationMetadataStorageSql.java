@@ -121,7 +121,7 @@ public class AggregationMetadataStorageSql implements AggregationMetadataStorage
 
 	public void saveAggregationMetadata(DSLContext jooq, Aggregation aggregation, AggregationStructure structure) {
 		Gson gson = new GsonBuilder()
-				.registerTypeAdapter(AggregationQuery.QueryPredicates.class, new QueryPredicatesGsonSerializer(structure))
+				.registerTypeAdapter(AggregationQuery.Predicates.class, new QueryPredicatesGsonSerializer(structure))
 				.create();
 
 		jooq.insertInto(AGGREGATION_DB_STRUCTURE)

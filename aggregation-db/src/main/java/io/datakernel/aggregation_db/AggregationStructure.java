@@ -34,7 +34,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
-import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -195,9 +194,9 @@ public class AggregationStructure {
 		logger.trace("Creating field comparator for query {}", query.toString());
 		AsmBuilder<Comparator> builder = new AsmBuilder<>(classLoader, Comparator.class);
 		ExpressionComparator comparator = comparator();
-		List<AggregationQuery.QueryOrdering> orderings = query.getOrderings();
+		List<AggregationQuery.Ordering> orderings = query.getOrderings();
 
-		for (AggregationQuery.QueryOrdering ordering : orderings) {
+		for (AggregationQuery.Ordering ordering : orderings) {
 			boolean isAsc = ordering.isAsc();
 			String field = ordering.getPropertyName();
 			if (isAsc)

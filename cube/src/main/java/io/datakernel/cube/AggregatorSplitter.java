@@ -61,7 +61,7 @@ public abstract class AggregatorSplitter<T> extends AbstractStreamSplitter<T> {
 
 	@SuppressWarnings("unchecked")
 	protected final <O> StreamDataReceiver<O> addOutput(Class<O> aggregationItemType, List<String> dimensions, List<String> measures,
-	                                              AggregationQuery.QueryPredicates predicates) {
+	                                              AggregationQuery.Predicates predicates) {
 		StreamProducer streamProducer = newOutput();
 		StreamConsumer streamConsumer = cube.consumer(aggregationItemType, dimensions, measures, predicates,
 				transaction.addCommitCallback());

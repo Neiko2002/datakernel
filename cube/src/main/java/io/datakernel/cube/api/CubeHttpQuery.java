@@ -26,8 +26,8 @@ public final class CubeHttpQuery {
 	private List<String> dimensions;
 	private List<String> measures;
 	private List<String> attributes;
-	private AggregationQuery.QueryPredicates filters;
-	private AggregationQuery.QueryOrdering sort;
+	private AggregationQuery.Predicates filters;
+	private AggregationQuery.Ordering sort;
 	private Integer limit;
 	private Integer offset;
 
@@ -70,21 +70,21 @@ public final class CubeHttpQuery {
 		return attributes;
 	}
 
-	public CubeHttpQuery filters(AggregationQuery.QueryPredicates filters) {
+	public CubeHttpQuery filters(AggregationQuery.Predicates filters) {
 		this.filters = filters;
 		return this;
 	}
 
-	public AggregationQuery.QueryPredicates getFilters() {
+	public AggregationQuery.Predicates getFilters() {
 		return filters;
 	}
 
-	public CubeHttpQuery sort(AggregationQuery.QueryOrdering sort) {
+	public CubeHttpQuery sort(AggregationQuery.Ordering sort) {
 		this.sort = sort;
 		return this;
 	}
 
-	public AggregationQuery.QueryOrdering getSort() {
+	public AggregationQuery.Ordering getSort() {
 		return sort;
 	}
 

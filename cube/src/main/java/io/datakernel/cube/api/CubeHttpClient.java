@@ -45,7 +45,7 @@ public final class CubeHttpClient {
 		this.httpClient = httpClient;
 		this.timeout = timeout;
 		this.gson = new GsonBuilder()
-				.registerTypeAdapter(AggregationQuery.QueryPredicates.class, new QueryPredicatesGsonSerializer(structure))
+				.registerTypeAdapter(AggregationQuery.Predicates.class, new QueryPredicatesGsonSerializer(structure))
 				.registerTypeAdapter(ReportingQueryResult.class, new ReportingQueryResponseDeserializer(structure, reportingConfiguration))
 				.create();
 	}
@@ -112,7 +112,7 @@ public final class CubeHttpClient {
 		return HttpRequest.get(url);
 	}
 
-	private String toJson(AggregationQuery.QueryOrdering ordering) {
+	private String toJson(AggregationQuery.Ordering ordering) {
 		JsonArray jsonArray = new JsonArray();
 		jsonArray.add(new JsonPrimitive(ordering.getPropertyName()));
 		jsonArray.add(new JsonPrimitive(ordering.isAsc() ? "asc" : "desc"));

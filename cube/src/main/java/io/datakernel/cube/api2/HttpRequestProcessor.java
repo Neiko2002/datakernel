@@ -40,8 +40,8 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		List<String> dimensions = parseListOfStrings(request.getParameter(DIMENSIONS_PARAM));
 		List<String> measures = parseMeasures(request.getParameter(MEASURES_PARAM));
 		List<String> attributes = parseListOfStrings(request.getParameter(ATTRIBUTES_PARAM));
-		AggregationQuery.QueryPredicates predicates = parsePredicates(request.getParameter(FILTERS_PARAM));
-		AggregationQuery.QueryOrdering ordering = parseOrdering(request.getParameter(SORT_PARAM));
+		AggregationQuery.Predicates predicates = parsePredicates(request.getParameter(FILTERS_PARAM));
+		AggregationQuery.Ordering ordering = parseOrdering(request.getParameter(SORT_PARAM));
 		Integer limit = valueOrNull(request.getParameter(LIMIT_PARAM));
 		Integer offset = valueOrNull(request.getParameter(OFFSET_PARAM));
 		boolean ignoreMeasures = getBoolean(request.getParameter(IGNORE_MEASURES_PARAM));
@@ -54,14 +54,14 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 				searchString);
 	}
 
-	private AggregationQuery.QueryPredicates parsePredicates(String json) {
-		AggregationQuery.QueryPredicates predicates = null;
+	private AggregationQuery.Predicates parsePredicates(String json) {
+		AggregationQuery.Predicates predicates = null;
 
 		if (json != null) {
-			predicates = gson.fromJson(json, AggregationQuery.QueryPredicates.class);
+			predicates = gson.fromJson(json, AggregationQuery.Predicates.class);
 		}
 
-		return predicates == null ? new AggregationQuery.QueryPredicates() : predicates;
+		return predicates == null ? new AggregationQuery.Predicates() : predicates;
 	}
 
 	private List<String> parseMeasures(String json) {
@@ -80,7 +80,7 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		return getListOfStrings(gson, json);
 	}
 
-	private AggregationQuery.QueryOrdering parseOrdering(String json) {
+	private AggregationQuery.Ordering parseOrdering(String json) {
 		List<String> ordering = parseListOfStrings(json);
 
 		if (ordering.isEmpty())
@@ -93,10 +93,10 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		String direction = ordering.get(1);
 
 		if (direction.equals("asc"))
-			return AggregationQuery.QueryOrdering.asc(field);
+			return AggregationQuery.Ordering.asc(field);
 
 		if (direction.equals("desc"))
-			return AggregationQuery.QueryOrdering.desc(field);
+			return AggregationQuery.Ordering.desc(field);
 
 		throw new QueryException("Incorrect ordering specified in 'sort' parameter");
 	}
