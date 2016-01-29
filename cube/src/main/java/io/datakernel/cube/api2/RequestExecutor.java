@@ -342,8 +342,15 @@ public final class RequestExecutor {
 		}
 
 		List applyLimitAndOffset(List results) {
-			int start = offset == null ? 0 : offset;
+			int start;
 			int end;
+
+			if (offset == null)
+				start = 0;
+			else if (offset >= results.size())
+				return newArrayList();
+			else
+				start = offset;
 
 			if (limit == null)
 				end = results.size();
