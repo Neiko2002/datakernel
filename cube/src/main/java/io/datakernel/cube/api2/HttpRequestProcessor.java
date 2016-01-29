@@ -26,18 +26,9 @@ import java.util.List;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static io.datakernel.cube.api.CommonUtils.getListOfStrings;
+import static io.datakernel.cube.api2.HttpJsonConstants.*;
 
 public final class HttpRequestProcessor implements RequestProcessor<HttpRequest> {
-	public static final String DIMENSIONS_PARAM = "dimensions";
-	public static final String MEASURES_PARAM = "measures";
-	public static final String ATTRIBUTES_PARAM = "attributes";
-	public static final String FILTERS_PARAM = "filters";
-	public static final String SORT_PARAM = "sort";
-	public static final String LIMIT_PARAM = "limit";
-	public static final String OFFSET_PARAM = "offset";
-	public static final String IGNORE_MEASURES_PARAM = "ignore-measures";
-	public static final String SEARCH_PARAM = "search";
-
 	private final Gson gson;
 
 	public HttpRequestProcessor(Gson gson) {

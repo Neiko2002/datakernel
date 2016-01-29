@@ -16,18 +16,34 @@
 
 package io.datakernel.cube.api;
 
+import com.google.common.base.MoreObjects;
+
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class ReportingQueryResult {
 	private final List<Map<String, Object>> records;
 	private final Map<String, Object> totals;
 	private final int count;
 
-	public ReportingQueryResult(List<Map<String, Object>> records, Map<String, Object> totals, int count) {
+	private final Set<List<String>> drillDowns;
+	private final List<String> dimensions;
+	private final List<String> attributes;
+	private final List<String> measures;
+	private final Map<String, Object> filterAttributes;
+
+	public ReportingQueryResult(List<Map<String, Object>> records, Map<String, Object> totals, int count,
+	                            Set<List<String>> drillDowns, List<String> dimensions, List<String> attributes,
+	                            List<String> measures, Map<String, Object> filterAttributes) {
 		this.records = records;
 		this.totals = totals;
 		this.count = count;
+		this.drillDowns = drillDowns;
+		this.dimensions = dimensions;
+		this.attributes = attributes;
+		this.measures = measures;
+		this.filterAttributes = filterAttributes;
 	}
 
 	public List<Map<String, Object>> getRecords() {
@@ -40,5 +56,39 @@ public final class ReportingQueryResult {
 
 	public int getCount() {
 		return count;
+	}
+
+	public Set<List<String>> getDrillDowns() {
+		return drillDowns;
+	}
+
+	public List<String> getDimensions() {
+		return dimensions;
+	}
+
+	public List<String> getAttributes() {
+		return attributes;
+	}
+
+	public List<String> getMeasures() {
+		return measures;
+	}
+
+	public Map<String, Object> getFilterAttributes() {
+		return filterAttributes;
+	}
+
+	@Override
+	public String toString() {
+		return MoreObjects.toStringHelper(this)
+				.add("records", records)
+				.add("totals", totals)
+				.add("count", count)
+				.add("drillDowns", drillDowns)
+				.add("dimensions", dimensions)
+				.add("attributes", attributes)
+				.add("measures", measures)
+				.add("filterAttributes", filterAttributes)
+				.toString();
 	}
 }

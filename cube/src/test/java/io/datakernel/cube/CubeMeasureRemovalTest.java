@@ -17,8 +17,6 @@
 package io.datakernel.cube;
 
 import com.google.common.collect.ImmutableMap;
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
 import io.datakernel.aggregation_db.*;
 import io.datakernel.aggregation_db.fieldtype.FieldType;
 import io.datakernel.aggregation_db.fieldtype.FieldTypeDouble;
@@ -27,37 +25,32 @@ import io.datakernel.aggregation_db.keytype.KeyType;
 import io.datakernel.aggregation_db.keytype.KeyTypeDate;
 import io.datakernel.aggregation_db.keytype.KeyTypeInt;
 import io.datakernel.async.AsyncCallbacks;
-import io.datakernel.async.AsyncExecutors;
 import io.datakernel.async.ResultCallbackFuture;
 import io.datakernel.codegen.utils.DefiningClassLoader;
 import io.datakernel.eventloop.Eventloop;
 import io.datakernel.examples.LogItem;
 import io.datakernel.examples.LogItemSplitter;
-import io.datakernel.logfs.*;
-import io.datakernel.serializer.BufferSerializer;
-import io.datakernel.serializer.SerializerBuilder;
+import io.datakernel.logfs.LogManager;
+import io.datakernel.logfs.LogToCubeMetadataStorage;
+import io.datakernel.logfs.LogToCubeRunner;
 import io.datakernel.stream.StreamConsumers;
 import io.datakernel.stream.StreamProducers;
 import org.jooq.Configuration;
 import org.jooq.SQLDialect;
-import org.jooq.impl.DataSourceConnectionProvider;
-import org.jooq.impl.DefaultConfiguration;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-import java.io.*;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.collect.Lists.newArrayList;
+import static io.datakernel.cube.CubeTestUtils.*;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.*;
 
@@ -137,49 +130,6 @@ public class CubeMeasureRemovalTest {
 		return cube;
 	}
 
-	private static Configuration getJooqConfiguration() throws IOException {
-		Properties properties = new Properties();
-		properties.load(new InputStreamReader(
-				new BufferedInputStream(new FileInputStream(
-						new File(DATABASE_PROPERTIES_PATH))), UTF_8));
-		HikariDataSource dataSource = new HikariDataSource(new HikariConfig(properties));
-
-		Configuration jooqConfiguration = new DefaultConfiguration();
-		jooqConfiguration.set(new DataSourceConnectionProvider(dataSource));
-		jooqConfiguration.set(DATABASE_DIALECT);
-
-		return jooqConfiguration;
-	}
-
-	private static LogToCubeMetadataStorage getLogToCubeMetadataStorage(Eventloop eventloop,
-	                                                                    ExecutorService executor,
-	                                                                    Configuration jooqConfiguration,
-	                                                                    AggregationMetadataStorageSql aggregationMetadataStorage) {
-		CubeMetadataStorageSql cubeMetadataStorage =
-				new CubeMetadataStorageSql(eventloop, executor, jooqConfiguration);
-		LogToCubeMetadataStorageSql metadataStorage = new LogToCubeMetadataStorageSql(eventloop, executor,
-				jooqConfiguration, cubeMetadataStorage, aggregationMetadataStorage);
-		metadataStorage.truncateTables();
-		return metadataStorage;
-	}
-
-	private static AggregationChunkStorage getAggregationChunkStorage(Eventloop eventloop, ExecutorService executor,
-	                                                                  AggregationStructure structure,
-	                                                                  Path aggregationsDir) {
-		return new LocalFsChunkStorage(eventloop, executor, AsyncExecutors.sequentialExecutor(),
-				structure, aggregationsDir);
-	}
-
-	private static LogManager<LogItem> getLogManager(Eventloop eventloop, ExecutorService executor,
-	                                                 DefiningClassLoader classLoader, Path logsDir) {
-		LocalFsLogFileSystem fileSystem = new LocalFsLogFileSystem(eventloop, executor, logsDir);
-		BufferSerializer<LogItem> bufferSerializer = SerializerBuilder
-				.newDefaultInstance(classLoader)
-				.create(LogItem.class);
-
-		return new LogManagerImpl<>(eventloop, fileSystem, bufferSerializer);
-	}
-
 	@Ignore
 	@SuppressWarnings("ConstantConditions")
 	@Test
@@ -192,7 +142,7 @@ public class CubeMeasureRemovalTest {
 		Path logsDir = temporaryFolder.newFolder().toPath();
 		AggregationStructure structure = getStructure(classLoader);
 
-		Configuration jooqConfiguration = getJooqConfiguration();
+		Configuration jooqConfiguration = getJooqConfiguration(DATABASE_PROPERTIES_PATH, DATABASE_DIALECT);
 		AggregationChunkStorage aggregationChunkStorage =
 				getAggregationChunkStorage(eventloop, executor, structure, aggregationsDir);
 		AggregationMetadataStorageSql aggregationMetadataStorage =
@@ -201,7 +151,7 @@ public class CubeMeasureRemovalTest {
 				getLogToCubeMetadataStorage(eventloop, executor, jooqConfiguration, aggregationMetadataStorage);
 		Cube cube = getCube(eventloop, classLoader, logToCubeMetadataStorage, aggregationMetadataStorage,
 				aggregationChunkStorage, structure);
-		LogManager<LogItem> logManager = getLogManager(eventloop, executor, classLoader, logsDir);
+		LogManager<LogItem> logManager = getLogManager(LogItem.class, eventloop, executor, classLoader, logsDir);
 		LogToCubeRunner<LogItem> logToCubeRunner = new LogToCubeRunner<>(eventloop, cube, logManager,
 				LogItemSplitter.factory(), LOG_NAME, LOG_PARTITIONS, logToCubeMetadataStorage, LOG_PARTITION_NAME);
 

@@ -17,20 +17,22 @@
 package io.datakernel.cube.api;
 
 import com.google.gson.*;
+import com.google.gson.reflect.TypeToken;
 import io.datakernel.aggregation_db.AggregationStructure;
 import io.datakernel.aggregation_db.keytype.KeyType;
 
 import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+
+import static io.datakernel.cube.api2.HttpJsonConstants.*;
 
 public class ReportingQueryResponseDeserializer implements JsonDeserializer<ReportingQueryResult> {
 	private final AggregationStructure structure;
+	private final ReportingConfiguration reportingConfiguration;
 
-	public ReportingQueryResponseDeserializer(AggregationStructure structure) {
+	public ReportingQueryResponseDeserializer(AggregationStructure structure, ReportingConfiguration reportingConfiguration) {
 		this.structure = structure;
+		this.reportingConfiguration = reportingConfiguration;
 	}
 
 	@Override
@@ -38,32 +40,43 @@ public class ReportingQueryResponseDeserializer implements JsonDeserializer<Repo
 			throws JsonParseException {
 		JsonObject json = jsonElement.getAsJsonObject();
 
-		int count = json.get("count").getAsInt();
+		int count = json.get(COUNT_FIELD).getAsInt();
 
-		JsonArray jsonRecords = json.get("records").getAsJsonArray();
+		JsonArray jsonRecords = json.get(RECORDS_FIELD).getAsJsonArray();
 		List<Map<String, Object>> records = new ArrayList<>(count);
 		for (JsonElement jsonRecordElement : jsonRecords) {
 			JsonObject jsonRecord = jsonRecordElement.getAsJsonObject();
 
-			Map<String, Object> record = new HashMap<>();
+			Map<String, Object> record = new LinkedHashMap<>();
 			for (Map.Entry<String, JsonElement> jsonRecordEntry : jsonRecord.entrySet()) {
-				KeyType keyType = structure.getKeyType(jsonRecordEntry.getKey());
-				if (keyType != null) {
-					record.put(jsonRecordEntry.getKey(), keyType.fromString(jsonRecordEntry.getValue().getAsString()));
-				} else if (structure.containsOutputField(jsonRecordEntry.getKey())) {
-					record.put(jsonRecordEntry.getKey(), jsonRecordEntry.getValue().getAsNumber());
-				} else
-					throw new JsonParseException("Unknown record key/field");
+				String property = jsonRecordEntry.getKey();
+				JsonElement propertyValue = jsonRecordEntry.getValue();
+
+				KeyType keyType = structure.getKeyType(property);
+				if (keyType != null)
+					record.put(property, keyType.fromString(propertyValue.getAsString()));
+				else if (structure.containsOutputField(property) || reportingConfiguration.containsComputedMeasure(property))
+					record.put(property, propertyValue.getAsNumber());
+				else if (reportingConfiguration.containsAttribute(property))
+					record.put(property, propertyValue.getAsString());
+				else
+					throw new JsonParseException("Unknown property '" + property + "' in record");
 			}
 			records.add(record);
 		}
 
-		JsonObject jsonTotals = json.get("totals").getAsJsonObject();
-		Map<String, Object> totals = new HashMap<>();
-		for (Map.Entry<String, JsonElement> totalsEntry : jsonTotals.entrySet()) {
-			totals.put(totalsEntry.getKey(), totalsEntry.getValue().getAsNumber());
-		}
+		Type map = new TypeToken<Map<String, Object>>() {}.getType();
+		JsonObject jsonTotals = json.get(TOTALS_FIELD).getAsJsonObject();
+		Map<String, Object> totals = ctx.deserialize(jsonTotals, map);
 
-		return new ReportingQueryResult(records, totals, count);
+		Type listOfStrings = new TypeToken<List<String>>() {}.getType();
+		JsonObject jsonMetadata = json.get(METADATA_FIELD).getAsJsonObject();
+		List<String> dimensions = ctx.deserialize(jsonMetadata.get(DIMENSIONS_FIELD), listOfStrings);
+		List<String> measures = ctx.deserialize(jsonMetadata.get(MEASURES_FIELD), listOfStrings);
+		List<String> attributes = ctx.deserialize(jsonMetadata.get(ATTRIBUTES_FIELD), listOfStrings);
+		Map<String, Object> filterAttributes = ctx.deserialize(jsonMetadata.get(FILTER_ATTRIBUTES_FIELD), map);
+		Set<List<String>> drillDowns = ctx.deserialize(jsonMetadata.get(DRILLDOWNS_FIELD), new TypeToken<Set<List<String>>>() {}.getType());
+
+		return new ReportingQueryResult(records, totals, count, drillDowns, dimensions, attributes, measures, filterAttributes);
 	}
 }

@@ -32,6 +32,7 @@ import java.util.Set;
 
 import static io.datakernel.cube.api.CommonUtils.createResponse;
 import static io.datakernel.cube.api.CommonUtils.generateGetter;
+import static io.datakernel.cube.api2.HttpJsonConstants.*;
 
 public final class HttpResultProcessor implements ResultProcessor<HttpResponse> {
 	private final DefiningClassLoader classLoader;
@@ -64,7 +65,7 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 			jsonMeasures.add(new JsonPrimitive(field));
 			measureGetters[i] = generateGetter(classLoader, resultClass, field);
 		}
-		jsonMetadata.add("measures", jsonMeasures);
+		jsonMetadata.add(MEASURES_FIELD, jsonMeasures);
 
 		JsonArray jsonDimensions = new JsonArray();
 		FieldGetter[] dimensionGetters = new FieldGetter[dimensions.size()];
@@ -75,7 +76,7 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 			dimensionGetters[i] = generateGetter(classLoader, resultClass, key);
 			keyTypes[i] = structure.getKeyType(key);
 		}
-		jsonMetadata.add("dimensions", jsonDimensions);
+		jsonMetadata.add(DIMENSIONS_FIELD, jsonDimensions);
 
 		JsonArray jsonAttributes = new JsonArray();
 		FieldGetter[] attributeGetters = new FieldGetter[attributes.size()];
@@ -84,14 +85,14 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 			jsonAttributes.add(new JsonPrimitive(attribute));
 			attributeGetters[i] = generateGetter(classLoader, resultClass, attribute);
 		}
-		jsonMetadata.add("attributes", jsonAttributes);
+		jsonMetadata.add(ATTRIBUTES_FIELD, jsonAttributes);
 
 		JsonObject jsonFilterAttributes = new JsonObject();
 		for (String attribute : filterAttributes) {
 			Object resolvedAttribute = generateGetter(classLoader, filterAttributesClass, attribute).get(filterAttributesPlaceholder);
 			jsonFilterAttributes.add(attribute, resolvedAttribute == null ? null : new JsonPrimitive(resolvedAttribute.toString()));
 		}
-		jsonMetadata.add("filterAttributes", jsonFilterAttributes);
+		jsonMetadata.add(FILTER_ATTRIBUTES_FIELD, jsonFilterAttributes);
 
 		JsonArray jsonDrillDowns = new JsonArray();
 		for (List<String> drillDown : drillDowns) {
@@ -101,7 +102,7 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 			}
 			jsonDrillDowns.add(jsonDrillDown);
 		}
-		jsonMetadata.add("drillDowns", jsonDrillDowns);
+		jsonMetadata.add(DRILLDOWNS_FIELD, jsonDrillDowns);
 
 		JsonArray jsonRecords = new JsonArray();
 		for (Object result : results) {
@@ -132,10 +133,10 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		}
 
 		JsonObject jsonResult = new JsonObject();
-		jsonResult.add("records", jsonRecords);
-		jsonResult.add("totals", jsonTotals);
-		jsonResult.add("metadata", jsonMetadata);
-		jsonResult.addProperty("count", count);
+		jsonResult.add(RECORDS_FIELD, jsonRecords);
+		jsonResult.add(TOTALS_FIELD, jsonTotals);
+		jsonResult.add(METADATA_FIELD, jsonMetadata);
+		jsonResult.addProperty(COUNT_FIELD, count);
 
 		return jsonResult.toString();
 	}

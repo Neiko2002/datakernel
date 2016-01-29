@@ -34,6 +34,9 @@ public final class ReportingQuery {
 	private boolean ignoreMeasures;
 	private String searchString;
 
+	public ReportingQuery() {
+	}
+
 	public ReportingQuery(List<String> dimensions, List<String> measures, List<String> attributes,
 	                      AggregationQuery.QueryPredicates filters, AggregationQuery.QueryOrdering sort,
 	                      Integer limit, Integer offset, boolean ignoreMeasures, String searchString) {
@@ -80,7 +83,7 @@ public final class ReportingQuery {
 	}
 
 	public ReportingQuery attributes(String... attributes) {
-		return measures(asList(attributes));
+		return attributes(asList(attributes));
 	}
 
 	public List<String> getAttributes() {

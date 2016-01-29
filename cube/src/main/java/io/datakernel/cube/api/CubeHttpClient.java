@@ -29,8 +29,8 @@ import io.datakernel.http.*;
 import java.util.HashMap;
 import java.util.Map;
 
-import static io.datakernel.cube.api.CubeHttpServer.REPORTING_QUERY_REQUEST_PATH;
-import static io.datakernel.cube.api2.HttpRequestProcessor.*;
+import static io.datakernel.cube.api.CubeHttpServer.QUERY_REQUEST_PATH;
+import static io.datakernel.cube.api2.HttpJsonConstants.*;
 import static io.datakernel.util.ByteBufStrings.decodeUTF8;
 
 public final class CubeHttpClient {
@@ -39,13 +39,14 @@ public final class CubeHttpClient {
 	private final int timeout;
 	private final Gson gson;
 
-	public CubeHttpClient(String domain, AsyncHttpClient httpClient, int timeout, AggregationStructure structure) {
+	public CubeHttpClient(String domain, AsyncHttpClient httpClient, int timeout, AggregationStructure structure,
+	                      ReportingConfiguration reportingConfiguration) {
 		this.domain = domain.replaceAll("/$", "");
 		this.httpClient = httpClient;
 		this.timeout = timeout;
 		this.gson = new GsonBuilder()
 				.registerTypeAdapter(AggregationQuery.QueryPredicates.class, new QueryPredicatesGsonSerializer(structure))
-				.registerTypeAdapter(ReportingQueryResult.class, new ReportingQueryResponseDeserializer(structure))
+				.registerTypeAdapter(ReportingQueryResult.class, new ReportingQueryResponseDeserializer(structure, reportingConfiguration))
 				.create();
 	}
 
@@ -65,13 +66,13 @@ public final class CubeHttpClient {
 					ReportingQueryResult result = gson.fromJson(response, ReportingQueryResult.class);
 					callback.onResult(result);
 				} catch (Exception e) {
-					callback.onException(new Exception("Could not parse cube HTTP query response"));
+					callback.onException(new Exception("Could not parse cube HTTP query response", e));
 				}
 			}
 
 			@Override
-			public void onException(Exception exception) {
-				callback.onException(new Exception("Cube HTTP request failed"));
+			public void onException(Exception e) {
+				callback.onException(new Exception("Cube HTTP request failed", e));
 			}
 		});
 	}
@@ -106,7 +107,7 @@ public final class CubeHttpClient {
 		if (query.isIgnoreMeasures())
 			urlParams.put(IGNORE_MEASURES_PARAM, "1");
 
-		String url = domain + REPORTING_QUERY_REQUEST_PATH + "?" + HttpUtils.urlQueryString(urlParams);
+		String url = domain + QUERY_REQUEST_PATH + "?" + HttpUtils.urlQueryString(urlParams);
 
 		return HttpRequest.get(url);
 	}
