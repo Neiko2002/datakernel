@@ -49,7 +49,7 @@ public class ReportingQueryResponseDeserializer implements JsonDeserializer<Repo
 			for (Map.Entry<String, JsonElement> jsonRecordEntry : jsonRecord.entrySet()) {
 				KeyType keyType = structure.getKeyType(jsonRecordEntry.getKey());
 				if (keyType != null) {
-					record.put(jsonRecordEntry.getKey(), keyType.fromJson(jsonRecordEntry.getValue()));
+					record.put(jsonRecordEntry.getKey(), keyType.fromString(jsonRecordEntry.getValue().getAsString()));
 				} else if (structure.containsOutputField(jsonRecordEntry.getKey())) {
 					record.put(jsonRecordEntry.getKey(), jsonRecordEntry.getValue().getAsNumber());
 				} else

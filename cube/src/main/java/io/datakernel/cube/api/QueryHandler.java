@@ -120,7 +120,7 @@ public final class QueryHandler implements AsyncHttpServlet {
 			JsonObject resultJsonObject = new JsonObject();
 
 			for (int i = 0; i < resultKeys.size(); i++) {
-				resultJsonObject.add(resultKeys.get(i), keyTypes[i].toJson(keyGetters[i].get(result)));
+				resultJsonObject.add(resultKeys.get(i), new JsonPrimitive(keyTypes[i].toString(keyGetters[i].get(result))));
 			}
 
 			for (int i = 0; i < resultFields.size(); i++) {

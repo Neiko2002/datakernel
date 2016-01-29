@@ -21,11 +21,11 @@ import com.google.common.base.MoreObjects;
 import java.util.List;
 import java.util.Set;
 
-public final class AvailableDrillDowns {
+public final class DrillDowns {
 	private final Set<List<String>> drillDowns;
 	private final Set<String> measures;
 
-	public AvailableDrillDowns(Set<List<String>> drillDowns, Set<String> measures) {
+	public DrillDowns(Set<List<String>> drillDowns, Set<String> measures) {
 		this.drillDowns = drillDowns;
 		this.measures = measures;
 	}
@@ -43,7 +43,7 @@ public final class AvailableDrillDowns {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
 
-		AvailableDrillDowns that = (AvailableDrillDowns) o;
+		DrillDowns that = (DrillDowns) o;
 
 		if (drillDowns != null ? !drillDowns.equals(that.drillDowns) : that.drillDowns != null) return false;
 		return !(measures != null ? !measures.equals(that.measures) : that.measures != null);

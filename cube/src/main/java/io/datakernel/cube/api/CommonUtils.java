@@ -37,7 +37,7 @@ import java.util.Set;
 import static io.datakernel.codegen.Expressions.*;
 import static io.datakernel.util.ByteBufStrings.wrapUTF8;
 
-class CommonUtils {
+public class CommonUtils {
 	public static FieldGetter generateGetter(DefiningClassLoader classLoader, Class<?> objClass, String propertyName) {
 		return new AsmBuilder<>(classLoader, FieldGetter.class)
 				.method("get", getter(cast(arg(0), objClass), propertyName))
@@ -100,5 +100,13 @@ class CommonUtils {
 	public static List<String> getListOfStrings(Gson gson, String json) {
 		Type type = new TypeToken<List<String>>() {}.getType();
 		return gson.fromJson(json, type);
+	}
+
+	public static Object instantiate(Class<?> clazz) {
+		try {
+			return clazz.newInstance();
+		} catch (InstantiationException | IllegalAccessException e) {
+			throw new RuntimeException(e);
+		}
 	}
 }

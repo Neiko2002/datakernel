@@ -20,17 +20,19 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import io.datakernel.aggregation_db.AggregationQuery;
 import io.datakernel.aggregation_db.gson.QueryPredicatesGsonSerializer;
+import io.datakernel.async.ResultCallback;
 import io.datakernel.codegen.utils.DefiningClassLoader;
 import io.datakernel.cube.Cube;
+import io.datakernel.cube.api2.HttpRequestHandler;
 import io.datakernel.eventloop.Eventloop;
-import io.datakernel.http.AsyncHttpServer;
-import io.datakernel.http.MiddlewareServlet;
+import io.datakernel.http.*;
 
 public final class CubeHttpServer {
 	public static final String DIMENSIONS_REQUEST_PATH = "/dimensions/";
-	public static final String QUERY_REQUEST_PATH = "/query/";
+	public static final String OLD_QUERY_REQUEST_PATH = "/old_query/";
 	public static final String INFO_REQUEST_PATH = "/info/";
-	public static final String REPORTING_QUERY_REQUEST_PATH = "/";
+	public static final String REPORTING_QUERY_REQUEST_PATH = "/reporting/";
+	public static final String QUERY_REQUEST_PATH = "/";
 
 	public static MiddlewareServlet createServlet(Cube cube, Eventloop eventloop, DefiningClassLoader classLoader) {
 		final Gson gson = new GsonBuilder()
@@ -39,13 +41,22 @@ public final class CubeHttpServer {
 
 		MiddlewareServlet servlet = new MiddlewareServlet();
 
+		final HttpRequestHandler handler = new HttpRequestHandler(gson, cube, eventloop, classLoader);
+
 		servlet.get(INFO_REQUEST_PATH, new InfoRequestHandler(cube, gson, classLoader));
 
-		servlet.get(QUERY_REQUEST_PATH, new QueryHandler(gson, cube, eventloop, classLoader));
+		servlet.get(OLD_QUERY_REQUEST_PATH, new QueryHandler(gson, cube, eventloop, classLoader));
 
 		servlet.get(DIMENSIONS_REQUEST_PATH, new DimensionsRequestHandler(gson, cube, eventloop, classLoader));
 
 		servlet.get(REPORTING_QUERY_REQUEST_PATH, new ReportingQueryHandler(gson, cube, eventloop, classLoader));
+
+		servlet.get(QUERY_REQUEST_PATH, new AsyncHttpServlet() {
+			@Override
+			public void serveAsync(HttpRequest request, ResultCallback<HttpResponse> callback) {
+				handler.process(request, callback);
+			}
+		});
 
 		return servlet;
 	}

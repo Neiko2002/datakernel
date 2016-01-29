@@ -27,7 +27,7 @@ import static io.datakernel.codegen.Expressions.*;
 import static io.datakernel.cube.api.ReportingDSL.*;
 import static org.junit.Assert.assertEquals;
 
-public class ReportingTest {
+public class ComputedMeasuresTest {
 	public interface TestQueryResultPlaceholder {
 		void computeMeasures();
 

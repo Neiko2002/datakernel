@@ -16,8 +16,6 @@
 
 package io.datakernel.aggregation_db.keytype;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
 import io.datakernel.serializer.StringFormat;
 import io.datakernel.serializer.asm.SerializerGen;
 import io.datakernel.serializer.asm.SerializerGenString;
@@ -52,13 +50,13 @@ public class KeyTypeString extends KeyType {
 	}
 
 	@Override
-	public JsonPrimitive toJson(Object value) {
-		return new JsonPrimitive((String) value);
+	public String toString(Object value) {
+		return (String) value;
 	}
 
 	@Override
-	public Object fromJson(JsonElement value) {
-		return value.getAsString();
+	public Object fromString(String str) {
+		return str;
 	}
 
 	@Override
