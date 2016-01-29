@@ -28,6 +28,16 @@ import static com.google.common.collect.Lists.newArrayList;
 import static io.datakernel.cube.api.CommonUtils.getListOfStrings;
 
 public final class HttpRequestProcessor implements RequestProcessor<HttpRequest> {
+	public static final String DIMENSIONS_PARAM = "dimensions";
+	public static final String MEASURES_PARAM = "measures";
+	public static final String ATTRIBUTES_PARAM = "attributes";
+	public static final String FILTERS_PARAM = "filters";
+	public static final String SORT_PARAM = "sort";
+	public static final String LIMIT_PARAM = "limit";
+	public static final String OFFSET_PARAM = "offset";
+	public static final String IGNORE_MEASURES_PARAM = "ignore-measures";
+	public static final String SEARCH_PARAM = "search";
+
 	private final Gson gson;
 
 	public HttpRequestProcessor(Gson gson) {
@@ -36,15 +46,15 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 
 	@Override
 	public ReportingQuery apply(HttpRequest request) {
-		List<String> dimensions = parseListOfStrings(request.getParameter("dimensions"));
-		List<String> measures = parseMeasures(request.getParameter("measures"));
-		List<String> attributes = parseListOfStrings(request.getParameter("attributes"));
-		AggregationQuery.QueryPredicates predicates = parsePredicates(request.getParameter("filters"));
-		AggregationQuery.QueryOrdering ordering = parseOrdering(request.getParameter("sort"));
-		Integer limit = valueOrNull(request.getParameter("limit"));
-		Integer offset = valueOrNull(request.getParameter("offset"));
-		boolean ignoreMeasures = getBoolean(request.getParameter("ignore-measures"));
-		String searchString = request.getParameter("search");
+		List<String> dimensions = parseListOfStrings(request.getParameter(DIMENSIONS_PARAM));
+		List<String> measures = parseMeasures(request.getParameter(MEASURES_PARAM));
+		List<String> attributes = parseListOfStrings(request.getParameter(ATTRIBUTES_PARAM));
+		AggregationQuery.QueryPredicates predicates = parsePredicates(request.getParameter(FILTERS_PARAM));
+		AggregationQuery.QueryOrdering ordering = parseOrdering(request.getParameter(SORT_PARAM));
+		Integer limit = valueOrNull(request.getParameter(LIMIT_PARAM));
+		Integer offset = valueOrNull(request.getParameter(OFFSET_PARAM));
+		boolean ignoreMeasures = getBoolean(request.getParameter(IGNORE_MEASURES_PARAM));
+		String searchString = request.getParameter(SEARCH_PARAM);
 
 		if (dimensions.isEmpty() && attributes.isEmpty())
 			throw new QueryException("At least one dimension or attribute must be specified");
