@@ -27,7 +27,7 @@ import io.datakernel.async.ResultCallback;
 import io.datakernel.codegen.*;
 import io.datakernel.codegen.utils.DefiningClassLoader;
 import io.datakernel.cube.Cube;
-import io.datakernel.cube.DrillDowns;
+import io.datakernel.cube.DrillDown;
 import io.datakernel.cube.api.*;
 import io.datakernel.eventloop.Eventloop;
 import io.datakernel.stream.StreamConsumers;
@@ -82,7 +82,7 @@ public final class RequestExecutor {
 		List<String> queryDimensions = newArrayList();
 		Set<String> storedDimensions = newHashSet();
 
-		DrillDowns drillDowns;
+		Set<DrillDown> drillDowns;
 
 		AggregationQuery query = new AggregationQuery();
 
@@ -90,9 +90,13 @@ public final class RequestExecutor {
 		Map<String, AggregationQuery.QueryPredicate> predicates;
 
 		List<String> queryMeasures;
+		Set<String> queryStoredMeasures = newHashSet();
+		Set<String> queryComputedMeasures = newHashSet();
 		Set<String> storedMeasures = newHashSet();
 		Set<String> computedMeasures = newHashSet();
+
 		boolean ignoreMeasures;
+		Set<String> metadataFields;
 
 		List<String> attributes = newArrayList();
 
@@ -108,7 +112,6 @@ public final class RequestExecutor {
 		void execute(ReportingQuery reportingQuery, final ResultCallback<QueryResult> resultCallback) {
 			queryDimensions = reportingQuery.getDimensions();
 			queryMeasures = reportingQuery.getMeasures();
-			ignoreMeasures = reportingQuery.isIgnoreMeasures();
 			queryPredicates = reportingQuery.getFilters();
 			predicates = transformPredicates(queryPredicates);
 			attributes = reportingQuery.getAttributes();
@@ -116,10 +119,14 @@ public final class RequestExecutor {
 			limit = reportingQuery.getLimit();
 			offset = reportingQuery.getOffset();
 			searchString = reportingQuery.getSearchString();
+			ignoreMeasures = reportingQuery.isIgnoreMeasures();
+			metadataFields = reportingQuery.getMetadataFields();
 
 			processAttributes();
 			processDimensions();
 			processMeasures();
+			buildDrillDowns();
+			processComputedMeasures();
 			processOrdering();
 
 			query
@@ -210,27 +217,44 @@ public final class RequestExecutor {
 		}
 
 		void processMeasures() {
-			Set<String> measures = newHashSet();
-			List<String> queryComputedMeasures = newArrayList();
-
 			for (String queryMeasure : queryMeasures) {
 				if (structure.containsOutputField(queryMeasure)) {
-					measures.add(queryMeasure);
+					queryStoredMeasures.add(queryMeasure);
 				} else if (reportingConfiguration.containsComputedMeasure(queryMeasure)) {
 					ReportingDSLExpression expression = reportingConfiguration.getExpressionForMeasure(queryMeasure);
-					measures.addAll(expression.getMeasureDependencies());
+					queryStoredMeasures.addAll(expression.getMeasureDependencies());
 					queryComputedMeasures.add(queryMeasure);
 				} else {
 					throw new QueryException("Cube does not contain measure with name '" + queryMeasure + "'");
 				}
 			}
 
-			drillDowns = cube.getAvailableDrillDowns(storedDimensions, queryPredicates, measures);
-			storedMeasures = drillDowns.getMeasures();
+			storedMeasures = cube.getAvailableMeasures(storedDimensions, queryPredicates, queryStoredMeasures);
 
 			for (String computedMeasure : queryComputedMeasures) {
 				if (all(reportingConfiguration.getComputedMeasureDependencies(computedMeasure), in(storedMeasures)))
 					computedMeasures.add(computedMeasure);
+			}
+		}
+
+		void buildDrillDowns() {
+			if (metadataFields.contains("drillDowns"))
+				drillDowns = cube.getDrillDowns(storedDimensions, queryPredicates, queryStoredMeasures);
+		}
+
+		void processComputedMeasures() {
+			for (String computedMeasure : queryComputedMeasures) {
+				Set<String> dependencies = reportingConfiguration.getComputedMeasureDependencies(computedMeasure);
+
+				if (all(dependencies, in(storedMeasures)))
+					computedMeasures.add(computedMeasure);
+
+				if (metadataFields.contains("drillDowns")) {
+					for (DrillDown drillDown : drillDowns) {
+						if (all(dependencies, in(drillDown.getMeasures())))
+							drillDown.getMeasures().add(computedMeasure);
+					}
+				}
 			}
 		}
 
@@ -303,13 +327,17 @@ public final class RequestExecutor {
 
 		@SuppressWarnings("unchecked")
 		void processResults(List<QueryResultPlaceholder> results, ResultCallback<QueryResult> callback) {
-			Class<?> filterAttributesClass = createFilterAttributesClass();
-			Object filterAttributesPlaceholder = instantiate(filterAttributesClass);
+			Class filterAttributesClass = null;
+			Object filterAttributesPlaceholder = null;
+			if (metadataFields.contains("filterAttributes")) {
+				filterAttributesClass = createFilterAttributesClass();
+				filterAttributesPlaceholder = instantiate(filterAttributesClass);
+				resolver.resolve(singletonList(filterAttributesPlaceholder), filterAttributesClass, filterAttributeTypes,
+						resolverKeys, keyConstants);
+			}
 
 			computeMeasures(results);
 			resolver.resolve((List) results, resultClass, attributeTypes, resolverKeys, keyConstants);
-			resolver.resolve(singletonList(filterAttributesPlaceholder), filterAttributesClass, filterAttributeTypes,
-					resolverKeys, keyConstants);
 			results = performSearch(results);
 			sort(results);
 			TotalsPlaceholder totalsPlaceholder = computeTotals(results);
@@ -326,18 +354,28 @@ public final class RequestExecutor {
 							}
 						}));
 
-			int count = results.size();
-			callback.onResult(new QueryResult(applyLimitAndOffset(results), resultClass, totalsPlaceholder,
-					count, drillDowns.getDrillDowns(), newArrayList(storedDimensions), attributes, resultMeasures,
-					filterAttributesPlaceholder, filterAttributes, filterAttributesClass));
+			callback.onResult(buildResult(applyLimitAndOffset(results), totalsPlaceholder, results.size(),
+					resultMeasures, filterAttributesPlaceholder, filterAttributesClass));
+		}
+
+		QueryResult buildResult(List results, TotalsPlaceholder totalsPlaceholder,
+		                        int count, List<String> resultMeasures, Object filterAttributesPlaceholder,
+		                        Class filterAttributesClass) {
+			List<String> dimensions = newArrayList(storedDimensions);
+			List<String> attributes = this.attributes;
+			List<String> filterAttributes = metadataFields.contains("filterAttributes") ? this.filterAttributes : null;
+
+			return new QueryResult(results, resultClass, totalsPlaceholder, count, drillDowns, dimensions, attributes,
+					resultMeasures, filterAttributesPlaceholder, filterAttributes, metadataFields);
 		}
 
 		List performSearch(List results) {
 			if (searchString == null)
 				return results;
 
-			Predicate searchPredicate = createSearchPredicate(searchString,
-					newArrayList(concat(storedDimensions, attributes)), resultClass);
+			Predicate searchPredicate = createSearchPredicate(searchString, concat(storedDimensions, attributes),
+					resultClass);
+
 			return newArrayList(filter(results, searchPredicate));
 		}
 
@@ -423,7 +461,7 @@ public final class RequestExecutor {
 			return builder.defineClass();
 		}
 
-		Predicate createSearchPredicate(String searchString, List<String> properties, Class recordClass) {
+		Predicate createSearchPredicate(String searchString, Iterable<String> properties, Class recordClass) {
 			AsmBuilder<Predicate> builder = new AsmBuilder<>(classLoader, Predicate.class);
 
 			PredicateDefOr predicate = or();

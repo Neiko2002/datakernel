@@ -17,31 +17,33 @@
 package io.datakernel.cube.api2;
 
 import com.google.common.base.MoreObjects;
+import io.datakernel.cube.DrillDown;
 import io.datakernel.cube.api.TotalsPlaceholder;
 
 import java.util.List;
 import java.util.Set;
 
 public final class QueryResult {
-	private final List<Object> records;
+	private final List records;
 	private final Class recordClass;
 
 	private final TotalsPlaceholder totals;
 	private final int count;
 
-	private final Set<List<String>> drillDowns;
+	private final Set<DrillDown> drillDowns;
 	private final List<String> dimensions;
 	private final List<String> attributes;
 	private final List<String> measures;
 
 	private final Object filterAttributesPlaceholder;
 	private final List<String> filterAttributes;
-	private final Class filterAttributesClass;
 
-	public QueryResult(List<Object> records, Class recordClass, TotalsPlaceholder totals,
-	                   int count, Set<List<String>> drillDowns, List<String> dimensions, List<String> attributes,
+	private final Set<String> metadataFields;
+
+	public QueryResult(List records, Class recordClass, TotalsPlaceholder totals,
+	                   int count, Set<DrillDown> drillDowns, List<String> dimensions, List<String> attributes,
 	                   List<String> measures, Object filterAttributesPlaceholder, List<String> filterAttributes,
-	                   Class filterAttributesClass) {
+	                   Set<String> metadataFields) {
 		this.records = records;
 		this.recordClass = recordClass;
 		this.totals = totals;
@@ -52,10 +54,10 @@ public final class QueryResult {
 		this.measures = measures;
 		this.filterAttributesPlaceholder = filterAttributesPlaceholder;
 		this.filterAttributes = filterAttributes;
-		this.filterAttributesClass = filterAttributesClass;
+		this.metadataFields = metadataFields;
 	}
 
-	public List<Object> getRecords() {
+	public List getRecords() {
 		return records;
 	}
 
@@ -71,7 +73,7 @@ public final class QueryResult {
 		return count;
 	}
 
-	public Set<List<String>> getDrillDowns() {
+	public Set<DrillDown> getDrillDowns() {
 		return drillDowns;
 	}
 
@@ -95,8 +97,8 @@ public final class QueryResult {
 		return filterAttributes;
 	}
 
-	public Class getFilterAttributesClass() {
-		return filterAttributesClass;
+	public Set<String> getMetadataFields() {
+		return metadataFields;
 	}
 
 	@Override
@@ -112,7 +114,7 @@ public final class QueryResult {
 				.add("measures", measures)
 				.add("filterAttributesPlaceholder", filterAttributesPlaceholder)
 				.add("filterAttributes", filterAttributes)
-				.add("filterAttributesClass", filterAttributesClass)
+				.add("metadataFields", metadataFields)
 				.toString();
 	}
 }

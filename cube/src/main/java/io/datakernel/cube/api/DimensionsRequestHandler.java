@@ -43,6 +43,7 @@ import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Sets.newHashSet;
 import static io.datakernel.cube.api.CommonUtils.*;
 
+@Deprecated
 public final class DimensionsRequestHandler implements AsyncHttpServlet {
 	private static final Logger logger = LoggerFactory.getLogger(DimensionsRequestHandler.class);
 

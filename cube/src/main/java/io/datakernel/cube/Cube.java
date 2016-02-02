@@ -73,14 +73,15 @@ public final class Cube {
 	 * Instantiates a cube with the specified structure, that runs in a given event loop,
 	 * uses the specified class loader for creating dynamic classes, saves data and metadata to given storages,
 	 * and uses the specified parameters.
-	 * @param eventloop                            event loop, in which the cube is to run
-	 * @param classLoader                          class loader for defining dynamic classes
-	 * @param cubeMetadataStorage                  storage for persisting cube metadata
-	 * @param aggregationMetadataStorage           storage for aggregations metadata
-	 * @param aggregationChunkStorage              storage for data chunks
-	 * @param structure                            structure of a cube
-	 * @param aggregationChunkSize                 maximum size of aggregation chunk
-	 * @param sorterItemsInMemory                  maximum number of records that can stay in memory while sorting
+	 *
+	 * @param eventloop                  event loop, in which the cube is to run
+	 * @param classLoader                class loader for defining dynamic classes
+	 * @param cubeMetadataStorage        storage for persisting cube metadata
+	 * @param aggregationMetadataStorage storage for aggregations metadata
+	 * @param aggregationChunkStorage    storage for data chunks
+	 * @param structure                  structure of a cube
+	 * @param aggregationChunkSize       maximum size of aggregation chunk
+	 * @param sorterItemsInMemory        maximum number of records that can stay in memory while sorting
 	 */
 	public Cube(Eventloop eventloop, DefiningClassLoader classLoader, CubeMetadataStorage cubeMetadataStorage,
 	            AggregationMetadataStorage aggregationMetadataStorage, AggregationChunkStorage aggregationChunkStorage,
@@ -413,33 +414,22 @@ public final class Cube {
 		});
 	}
 
+	@Deprecated
 	public DrillDowns getAvailableDrillDowns(Set<String> dimensions, AggregationQuery.QueryPredicates predicates,
 	                                         Set<String> measures) {
 		Set<String> availableMeasures = newHashSet();
 		Set<String> availableDimensions = newHashSet();
-		Set<String> eqPredicateDimensions = newHashSet();
 
 		AggregationQuery query = new AggregationQuery(newArrayList(dimensions), newArrayList(measures), predicates);
 
-		for (AggregationQuery.QueryPredicate predicate : predicates.asCollection()) {
-			if (predicate instanceof AggregationQuery.QueryPredicateEq) {
-				eqPredicateDimensions.add(predicate.key);
-			}
-		}
-
-		List<String> queryDimensions = newArrayList(concat(dimensions, eqPredicateDimensions));
+		List<String> queryDimensions = getQueryDimensions(dimensions, predicates.asCollection());
 
 		for (Aggregation aggregation : aggregations.values()) {
 			Set<String> aggregationMeasures = newHashSet();
 			aggregationMeasures.addAll(aggregation.getOutputFields());
 
-			if (!all(queryDimensions, in(aggregation.getKeys())))
-				continue;
-
-			if (!any(measures, in(aggregationMeasures)))
-				continue;
-
-			if (aggregation.hasPredicates() && !aggregation.applyQueryPredicates(query, structure).isMatches())
+			if (!all(queryDimensions, in(aggregation.getKeys())) || !any(measures, in(aggregationMeasures)) ||
+					aggregation.hasPredicates() && !aggregation.applyQueryPredicates(query, structure).isMatches())
 				continue;
 
 			Sets.intersection(aggregationMeasures, measures).copyInto(availableMeasures);
@@ -450,6 +440,50 @@ public final class Cube {
 		Set<List<String>> drillDownChains = structure.getChildParentRelationships().buildDrillDownChains(dimensions, availableDimensions);
 
 		return new DrillDowns(drillDownChains, availableMeasures);
+	}
+
+	public Set<DrillDown> getDrillDowns(Set<String> dimensions, AggregationQuery.QueryPredicates predicates,
+	                                    Set<String> measures) {
+		Set<DrillDown> drillDowns = newHashSet();
+
+		AggregationQuery query = new AggregationQuery(newArrayList(dimensions), newArrayList(measures), predicates);
+
+		List<String> queryDimensions = getQueryDimensions(dimensions, predicates.asCollection());
+
+		for (Aggregation aggregation : aggregations.values()) {
+			Set<String> aggregationMeasures = newHashSet();
+			aggregationMeasures.addAll(aggregation.getOutputFields());
+
+			if (!all(queryDimensions, in(aggregation.getKeys())) || !any(measures, in(aggregationMeasures)) ||
+					aggregation.hasPredicates() && !aggregation.applyQueryPredicates(query, structure).isMatches())
+				continue;
+
+			Set<String> availableMeasures = newHashSet();
+			Sets.intersection(aggregationMeasures, measures).copyInto(availableMeasures);
+
+			Iterable<String> availableDimensions = filter(aggregation.getKeys(), not(in(queryDimensions)));
+			Set<List<String>> drillDownChains = structure.getChildParentRelationships().buildDrillDownChains(dimensions,
+					availableDimensions);
+
+			for (List<String> drillDownChain : drillDownChains) {
+				drillDowns.add(new DrillDown(drillDownChain, availableMeasures));
+			}
+		}
+
+		return drillDowns;
+	}
+
+	private List<String> getQueryDimensions(Iterable<String> dimensions,
+	                                            Iterable<AggregationQuery.QueryPredicate> predicates) {
+		Set<String> eqPredicateDimensions = newHashSet();
+
+		for (AggregationQuery.QueryPredicate predicate : predicates) {
+			if (predicate instanceof AggregationQuery.QueryPredicateEq) {
+				eqPredicateDimensions.add(predicate.key);
+			}
+		}
+
+		return newArrayList(concat(dimensions, eqPredicateDimensions));
 	}
 
 	public Set<String> findChildrenDimensions(String parent) {
@@ -464,6 +498,29 @@ public final class Cube {
 		return buildDrillDownChain(Sets.<String>newHashSet(), dimension);
 	}
 
+	public Set<String> getAvailableMeasures(Set<String> dimensions, AggregationQuery.QueryPredicates predicates,
+	                                        Set<String> measures) {
+		Set<String> availableMeasures = newHashSet();
+
+		AggregationQuery query = new AggregationQuery(newArrayList(dimensions), newArrayList(measures), predicates);
+
+		List<String> queryDimensions = getQueryDimensions(dimensions, predicates.asCollection());
+
+		for (Aggregation aggregation : aggregations.values()) {
+			Set<String> aggregationMeasures = newHashSet();
+			aggregationMeasures.addAll(aggregation.getOutputFields());
+
+			if (!all(queryDimensions, in(aggregation.getKeys())) || !any(measures, in(aggregationMeasures)) ||
+					aggregation.hasPredicates() && !aggregation.applyQueryPredicates(query, structure).isMatches())
+				continue;
+
+			Sets.intersection(aggregationMeasures, measures).copyInto(availableMeasures);
+		}
+
+		return availableMeasures;
+	}
+
+	@Deprecated
 	public Set<String> getAvailableMeasures(Set<String> dimensions, List<String> allMeasures) {
 		Set<String> availableMeasures = newHashSet();
 		Set<String> allMeasuresSet = newHashSet();
