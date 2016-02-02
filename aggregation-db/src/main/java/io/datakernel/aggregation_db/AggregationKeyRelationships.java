@@ -37,7 +37,7 @@ public class AggregationKeyRelationships {
 		}
 	}
 
-	public Set<List<String>> buildDrillDownChains(Set<String> usedDimensions, Set<String> availableDimensions) {
+	public Set<List<String>> buildDrillDownChains(Set<String> usedDimensions, Iterable<String> availableDimensions) {
 		Set<List<String>> drillDowns = newHashSet();
 		for (String dimension : availableDimensions) {
 			List<String> drillDown = buildDrillDownChain(usedDimensions, dimension);

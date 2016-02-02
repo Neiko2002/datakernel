@@ -48,6 +48,7 @@ import static com.google.common.collect.Sets.newHashSet;
 import static io.datakernel.codegen.Expressions.*;
 import static io.datakernel.cube.api.CommonUtils.*;
 
+@Deprecated
 public final class ReportingQueryHandler implements AsyncHttpServlet {
 	private static final Logger logger = LoggerFactory.getLogger(ReportingQueryHandler.class);
 

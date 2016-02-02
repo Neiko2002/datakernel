@@ -20,7 +20,9 @@ import com.google.common.base.MoreObjects;
 import io.datakernel.aggregation_db.AggregationQuery;
 
 import java.util.List;
+import java.util.Set;
 
+import static com.google.common.collect.Sets.newHashSet;
 import static java.util.Arrays.asList;
 
 public final class ReportingQuery {
@@ -31,15 +33,17 @@ public final class ReportingQuery {
 	private AggregationQuery.Ordering sort;
 	private Integer limit;
 	private Integer offset;
-	private boolean ignoreMeasures;
 	private String searchString;
+	private boolean ignoreMeasures;
+	private Set<String> metadataFields;
 
 	public ReportingQuery() {
 	}
 
 	public ReportingQuery(List<String> dimensions, List<String> measures, List<String> attributes,
 	                      AggregationQuery.Predicates filters, AggregationQuery.Ordering sort,
-	                      Integer limit, Integer offset, boolean ignoreMeasures, String searchString) {
+	                      Integer limit, Integer offset, String searchString, boolean ignoreMeasures,
+	                      Set<String> metadataFields) {
 		this.dimensions = dimensions;
 		this.measures = measures;
 		this.attributes = attributes;
@@ -49,6 +53,7 @@ public final class ReportingQuery {
 		this.offset = offset;
 		this.ignoreMeasures = ignoreMeasures;
 		this.searchString = searchString;
+		this.metadataFields = metadataFields;
 	}
 
 	public ReportingQuery dimensions(List<String> dimensions) {
@@ -126,15 +131,6 @@ public final class ReportingQuery {
 		return offset;
 	}
 
-	public ReportingQuery ignoreMeasures(boolean ignoreMeasures) {
-		this.ignoreMeasures = ignoreMeasures;
-		return this;
-	}
-
-	public boolean isIgnoreMeasures() {
-		return ignoreMeasures;
-	}
-
 	public ReportingQuery search(String searchString) {
 		this.searchString = searchString;
 		return this;
@@ -142,6 +138,28 @@ public final class ReportingQuery {
 
 	public String getSearchString() {
 		return searchString;
+	}
+
+	public ReportingQuery metadataFields(Set<String> metadataFields) {
+		this.metadataFields = metadataFields;
+		return this;
+	}
+
+	public ReportingQuery metadataFields(String... metadataFields) {
+		return metadataFields(newHashSet(metadataFields));
+	}
+
+	public Set<String> getMetadataFields() {
+		return metadataFields;
+	}
+
+	public ReportingQuery ignoreMeasures(boolean ignoreMeasures) {
+		this.ignoreMeasures = ignoreMeasures;
+		return this;
+	}
+
+	public boolean isIgnoreMeasures() {
+		return ignoreMeasures;
 	}
 
 	@Override
@@ -155,6 +173,7 @@ public final class ReportingQuery {
 				.add("limit", limit)
 				.add("offset", offset)
 				.add("ignoreMeasures", ignoreMeasures)
+				.add("metadataFields", metadataFields)
 				.add("searchString", searchString)
 				.toString();
 	}

@@ -44,6 +44,7 @@ import static com.google.common.collect.Maps.newLinkedHashMap;
 import static com.google.common.collect.Sets.newHashSet;
 import static io.datakernel.cube.api.CommonUtils.*;
 
+@Deprecated
 public final class InfoRequestHandler implements AsyncHttpServlet {
 	private static final Logger logger = LoggerFactory.getLogger(InfoRequestHandler.class);
 

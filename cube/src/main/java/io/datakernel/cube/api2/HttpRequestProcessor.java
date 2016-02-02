@@ -23,9 +23,12 @@ import io.datakernel.cube.api.ReportingQuery;
 import io.datakernel.http.HttpRequest;
 
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Sets.newHashSet;
 import static io.datakernel.cube.api.CommonUtils.getListOfStrings;
+import static io.datakernel.cube.api.CommonUtils.getSetOfStrings;
 import static io.datakernel.cube.api2.HttpJsonConstants.*;
 
 public final class HttpRequestProcessor implements RequestProcessor<HttpRequest> {
@@ -46,12 +49,13 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		Integer offset = valueOrNull(request.getParameter(OFFSET_PARAM));
 		boolean ignoreMeasures = getBoolean(request.getParameter(IGNORE_MEASURES_PARAM));
 		String searchString = request.getParameter(SEARCH_PARAM);
+		Set<String> metadataFields = parseSetOfStrings(request.getParameter(METADATA_FIELDS_PARAM));
 
 		if (dimensions.isEmpty() && attributes.isEmpty())
 			throw new QueryException("At least one dimension or attribute must be specified");
 
-		return new ReportingQuery(dimensions, measures, attributes, predicates, ordering, limit, offset, ignoreMeasures,
-				searchString);
+		return new ReportingQuery(dimensions, measures, attributes, predicates, ordering, limit, offset, searchString,
+				ignoreMeasures, metadataFields);
 	}
 
 	private AggregationQuery.Predicates parsePredicates(String json) {
@@ -78,6 +82,13 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 			return newArrayList();
 
 		return getListOfStrings(gson, json);
+	}
+
+	private Set<String> parseSetOfStrings(String json) {
+		if (json == null)
+			return newHashSet();
+
+		return getSetOfStrings(gson, json);
 	}
 
 	private AggregationQuery.Ordering parseOrdering(String json) {

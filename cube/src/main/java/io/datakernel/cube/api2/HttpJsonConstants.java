@@ -24,8 +24,9 @@ public final class HttpJsonConstants {
 	public static final String SORT_PARAM = "sort";
 	public static final String LIMIT_PARAM = "limit";
 	public static final String OFFSET_PARAM = "offset";
-	public static final String IGNORE_MEASURES_PARAM = "ignore-measures";
 	public static final String SEARCH_PARAM = "search";
+	public static final String IGNORE_MEASURES_PARAM = "ignore-measures";
+	public static final String METADATA_FIELDS_PARAM = "metadata";
 
 	public static final String DIMENSIONS_FIELD = "dimensions";
 	public static final String MEASURES_FIELD = "measures";

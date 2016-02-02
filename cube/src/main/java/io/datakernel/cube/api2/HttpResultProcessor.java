@@ -23,6 +23,7 @@ import com.google.gson.JsonPrimitive;
 import io.datakernel.aggregation_db.AggregationStructure;
 import io.datakernel.aggregation_db.keytype.KeyType;
 import io.datakernel.codegen.utils.DefiningClassLoader;
+import io.datakernel.cube.DrillDown;
 import io.datakernel.cube.api.FieldGetter;
 import io.datakernel.cube.api.TotalsPlaceholder;
 import io.datakernel.http.HttpResponse;
@@ -48,63 +49,81 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		String response = constructResult(result.getRecords(), result.getRecordClass(), result.getTotals(),
 				result.getCount(), result.getDrillDowns(), result.getDimensions(), result.getAttributes(),
 				result.getMeasures(), result.getFilterAttributesPlaceholder(), result.getFilterAttributes(),
-				result.getFilterAttributesClass());
+				result.getMetadataFields());
 		return createResponse(response);
 	}
 
 	private String constructResult(List results, Class resultClass, TotalsPlaceholder totals, int count,
-	                               Set<List<String>> drillDowns, List<String> dimensions, List<String> attributes,
+	                               Set<DrillDown> drillDowns, List<String> dimensions, List<String> attributes,
 	                               List<String> measures, Object filterAttributesPlaceholder,
-	                               List<String> filterAttributes, Class filterAttributesClass) {
+	                               List<String> filterAttributes, Set<String> metadataFields) {
 		JsonObject jsonMetadata = new JsonObject();
 
-		JsonArray jsonMeasures = new JsonArray();
-		FieldGetter[] measureGetters = new FieldGetter[measures.size()];
-		for (int i = 0; i < measures.size(); ++i) {
-			String field = measures.get(i);
-			jsonMeasures.add(new JsonPrimitive(field));
-			measureGetters[i] = generateGetter(classLoader, resultClass, field);
-		}
-		jsonMetadata.add(MEASURES_FIELD, jsonMeasures);
-
-		JsonArray jsonDimensions = new JsonArray();
 		FieldGetter[] dimensionGetters = new FieldGetter[dimensions.size()];
 		KeyType[] keyTypes = new KeyType[dimensions.size()];
 		for (int i = 0; i < dimensions.size(); ++i) {
 			String key = dimensions.get(i);
-			jsonDimensions.add(new JsonPrimitive(key));
 			dimensionGetters[i] = generateGetter(classLoader, resultClass, key);
 			keyTypes[i] = structure.getKeyType(key);
 		}
-		jsonMetadata.add(DIMENSIONS_FIELD, jsonDimensions);
 
-		JsonArray jsonAttributes = new JsonArray();
 		FieldGetter[] attributeGetters = new FieldGetter[attributes.size()];
 		for (int i = 0; i < attributes.size(); ++i) {
 			String attribute = attributes.get(i);
-			jsonAttributes.add(new JsonPrimitive(attribute));
 			attributeGetters[i] = generateGetter(classLoader, resultClass, attribute);
 		}
-		jsonMetadata.add(ATTRIBUTES_FIELD, jsonAttributes);
 
-		JsonObject jsonFilterAttributes = new JsonObject();
-		for (String attribute : filterAttributes) {
-			Object resolvedAttribute = generateGetter(classLoader, filterAttributesClass, attribute).get(filterAttributesPlaceholder);
-			jsonFilterAttributes.add(attribute, resolvedAttribute == null ? null : new JsonPrimitive(resolvedAttribute.toString()));
+		FieldGetter[] measureGetters = new FieldGetter[measures.size()];
+		for (int i = 0; i < measures.size(); ++i) {
+			String field = measures.get(i);
+			measureGetters[i] = generateGetter(classLoader, resultClass, field);
 		}
-		jsonMetadata.add(FILTER_ATTRIBUTES_FIELD, jsonFilterAttributes);
 
-		JsonArray jsonDrillDowns = new JsonArray();
-		for (List<String> drillDown : drillDowns) {
-			JsonArray jsonDrillDown = new JsonArray();
-			for (String dimension : drillDown) {
-				jsonDrillDown.add(new JsonPrimitive(dimension));
-			}
-			jsonDrillDowns.add(jsonDrillDown);
+		if (metadataFields.contains(DIMENSIONS_FIELD))
+			jsonMetadata.add(DIMENSIONS_FIELD, getJsonArrayFromList(dimensions));
+
+		if (metadataFields.contains(ATTRIBUTES_FIELD))
+			jsonMetadata.add(ATTRIBUTES_FIELD, getJsonArrayFromList(attributes));
+
+		if (metadataFields.contains(MEASURES_FIELD))
+			jsonMetadata.add(MEASURES_FIELD, getJsonArrayFromList(measures));
+
+		if (metadataFields.contains(FILTER_ATTRIBUTES_FIELD))
+			jsonMetadata.add(FILTER_ATTRIBUTES_FIELD, getFilterAttributesJson(filterAttributes, filterAttributesPlaceholder));
+
+		if (metadataFields.contains(DRILLDOWNS_FIELD))
+			jsonMetadata.add(DRILLDOWNS_FIELD, getDrillDownsJson(drillDowns));
+
+		JsonArray jsonRecords = getRecordsJson(results, dimensions, attributes, measures, dimensionGetters,
+				attributeGetters, measureGetters, keyTypes);
+
+		JsonObject jsonTotals = getTotalsJson(totals, measures);
+
+		JsonObject jsonResult = new JsonObject();
+		jsonResult.add(RECORDS_FIELD, jsonRecords);
+		jsonResult.add(TOTALS_FIELD, jsonTotals);
+		jsonResult.add(METADATA_FIELD, jsonMetadata);
+		jsonResult.addProperty(COUNT_FIELD, count);
+
+		return jsonResult.toString();
+	}
+
+	private static JsonArray getJsonArrayFromList(List<String> strings) {
+		JsonArray jsonArray = new JsonArray();
+
+		for (String s : strings) {
+			jsonArray.add(new JsonPrimitive(s));
 		}
-		jsonMetadata.add(DRILLDOWNS_FIELD, jsonDrillDowns);
 
+		return jsonArray;
+	}
+
+	private JsonArray getRecordsJson(List results, List<String> dimensions, List<String> attributes,
+	                                 List<String> measures, FieldGetter[] dimensionGetters,
+	                                 FieldGetter[] attributeGetters, FieldGetter[] measureGetters,
+	                                 KeyType[] keyTypes) {
 		JsonArray jsonRecords = new JsonArray();
+
 		for (Object result : results) {
 			JsonObject resultJsonObject = new JsonObject();
 
@@ -126,18 +145,51 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 			jsonRecords.add(resultJsonObject);
 		}
 
+		return jsonRecords;
+	}
+
+	private JsonObject getTotalsJson(TotalsPlaceholder totals, List<String> measures) {
 		JsonObject jsonTotals = new JsonObject();
+
 		for (String field : measures) {
 			Object totalFieldValue = generateGetter(classLoader, totals.getClass(), field).get(totals);
 			jsonTotals.add(field, new JsonPrimitive((Number) totalFieldValue));
 		}
 
-		JsonObject jsonResult = new JsonObject();
-		jsonResult.add(RECORDS_FIELD, jsonRecords);
-		jsonResult.add(TOTALS_FIELD, jsonTotals);
-		jsonResult.add(METADATA_FIELD, jsonMetadata);
-		jsonResult.addProperty(COUNT_FIELD, count);
+		return jsonTotals;
+	}
 
-		return jsonResult.toString();
+	private JsonArray getDrillDownsJson(Set<DrillDown> drillDowns) {
+		JsonArray jsonDrillDowns = new JsonArray();
+
+		for (DrillDown drillDown : drillDowns) {
+			JsonArray jsonDrillDownDimensions = new JsonArray();
+			for (String drillDownDimension : drillDown.getChain()) {
+				jsonDrillDownDimensions.add(new JsonPrimitive(drillDownDimension));
+			}
+
+			JsonArray jsonDrillDownMeasures = new JsonArray();
+			for (String drillDownMeasure : drillDown.getMeasures()) {
+				jsonDrillDownMeasures.add(new JsonPrimitive(drillDownMeasure));
+			}
+
+			JsonObject jsonDrillDown = new JsonObject();
+			jsonDrillDown.add(DIMENSIONS_FIELD, jsonDrillDownDimensions);
+			jsonDrillDown.add(MEASURES_FIELD, jsonDrillDownMeasures);
+			jsonDrillDowns.add(jsonDrillDown);
+		}
+
+		return jsonDrillDowns;
+	}
+
+	private JsonObject getFilterAttributesJson(List<String> filterAttributes, Object filterAttributesPlaceholder) {
+		JsonObject jsonFilterAttributes = new JsonObject();
+		for (String attribute : filterAttributes) {
+			Object resolvedAttribute = generateGetter(classLoader, filterAttributesPlaceholder.getClass(), attribute)
+					.get(filterAttributesPlaceholder);
+			jsonFilterAttributes.add(attribute, resolvedAttribute == null ?
+					null : new JsonPrimitive(resolvedAttribute.toString()));
+		}
+		return jsonFilterAttributes;
 	}
 }
