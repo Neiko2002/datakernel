@@ -17,6 +17,7 @@
 package io.datakernel.cube.api;
 
 import com.google.common.base.MoreObjects;
+import io.datakernel.cube.DrillDown;
 
 import java.util.List;
 import java.util.Map;
@@ -27,14 +28,14 @@ public final class ReportingQueryResult {
 	private final Map<String, Object> totals;
 	private final int count;
 
-	private final Set<List<String>> drillDowns;
+	private final Set<DrillDown> drillDowns;
 	private final List<String> dimensions;
 	private final List<String> attributes;
 	private final List<String> measures;
 	private final Map<String, Object> filterAttributes;
 
 	public ReportingQueryResult(List<Map<String, Object>> records, Map<String, Object> totals, int count,
-	                            Set<List<String>> drillDowns, List<String> dimensions, List<String> attributes,
+	                            Set<DrillDown> drillDowns, List<String> dimensions, List<String> attributes,
 	                            List<String> measures, Map<String, Object> filterAttributes) {
 		this.records = records;
 		this.totals = totals;
@@ -58,7 +59,7 @@ public final class ReportingQueryResult {
 		return count;
 	}
 
-	public Set<List<String>> getDrillDowns() {
+	public Set<DrillDown> getDrillDowns() {
 		return drillDowns;
 	}
 

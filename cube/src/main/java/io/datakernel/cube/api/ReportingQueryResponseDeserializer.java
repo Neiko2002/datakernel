@@ -20,10 +20,12 @@ import com.google.gson.*;
 import com.google.gson.reflect.TypeToken;
 import io.datakernel.aggregation_db.AggregationStructure;
 import io.datakernel.aggregation_db.keytype.KeyType;
+import io.datakernel.cube.DrillDown;
 
 import java.lang.reflect.Type;
 import java.util.*;
 
+import static com.google.common.collect.Sets.newHashSet;
 import static io.datakernel.cube.api2.HttpJsonConstants.*;
 
 public class ReportingQueryResponseDeserializer implements JsonDeserializer<ReportingQueryResult> {
@@ -43,7 +45,46 @@ public class ReportingQueryResponseDeserializer implements JsonDeserializer<Repo
 		int count = json.get(COUNT_FIELD).getAsInt();
 
 		JsonArray jsonRecords = json.get(RECORDS_FIELD).getAsJsonArray();
-		List<Map<String, Object>> records = new ArrayList<>(count);
+		List<Map<String, Object>> records = deserializeRecords(jsonRecords);
+
+		Type map = new TypeToken<Map<String, Object>>() {}.getType();
+		JsonObject jsonTotals = json.get(TOTALS_FIELD).getAsJsonObject();
+		Map<String, Object> totals = ctx.deserialize(jsonTotals, map);
+
+		Type listOfStrings = new TypeToken<List<String>>() {}.getType();
+		JsonObject jsonMetadata = json.get(METADATA_FIELD).getAsJsonObject();
+		List<String> dimensions = ctx.deserialize(jsonMetadata.get(DIMENSIONS_FIELD), listOfStrings);
+		List<String> measures = ctx.deserialize(jsonMetadata.get(MEASURES_FIELD), listOfStrings);
+		List<String> attributes = ctx.deserialize(jsonMetadata.get(ATTRIBUTES_FIELD), listOfStrings);
+		Map<String, Object> filterAttributes = ctx.deserialize(jsonMetadata.get(FILTER_ATTRIBUTES_FIELD), map);
+		Set<DrillDown> drillDowns = deserializeDrillDowns(jsonMetadata.get(DRILLDOWNS_FIELD),
+				listOfStrings, ctx);
+
+		return new ReportingQueryResult(records, totals, count, drillDowns, dimensions, attributes, measures, filterAttributes);
+	}
+
+	private Set<DrillDown> deserializeDrillDowns(JsonElement json, Type listOfStrings,
+	                                             JsonDeserializationContext ctx) {
+		if (json == null)
+			return newHashSet();
+
+		Set<DrillDown> drillDowns = newHashSet();
+
+		Type setOfStrings = new TypeToken<Set<String>>() {}.getType();
+
+		for (JsonElement jsonDrillDown : json.getAsJsonArray()) {
+			List<String> dimensions = ctx.deserialize(jsonDrillDown.getAsJsonObject().get(DIMENSIONS_FIELD),
+					listOfStrings);
+			Set<String> measures = ctx.deserialize(jsonDrillDown.getAsJsonObject().get(MEASURES_FIELD), setOfStrings);
+			drillDowns.add(new DrillDown(dimensions, measures));
+		}
+
+		return drillDowns;
+	}
+
+	private List<Map<String, Object>> deserializeRecords(JsonArray jsonRecords) {
+		List<Map<String, Object>> records = new ArrayList<>();
+
 		for (JsonElement jsonRecordElement : jsonRecords) {
 			JsonObject jsonRecord = jsonRecordElement.getAsJsonObject();
 
@@ -65,18 +106,6 @@ public class ReportingQueryResponseDeserializer implements JsonDeserializer<Repo
 			records.add(record);
 		}
 
-		Type map = new TypeToken<Map<String, Object>>() {}.getType();
-		JsonObject jsonTotals = json.get(TOTALS_FIELD).getAsJsonObject();
-		Map<String, Object> totals = ctx.deserialize(jsonTotals, map);
-
-		Type listOfStrings = new TypeToken<List<String>>() {}.getType();
-		JsonObject jsonMetadata = json.get(METADATA_FIELD).getAsJsonObject();
-		List<String> dimensions = ctx.deserialize(jsonMetadata.get(DIMENSIONS_FIELD), listOfStrings);
-		List<String> measures = ctx.deserialize(jsonMetadata.get(MEASURES_FIELD), listOfStrings);
-		List<String> attributes = ctx.deserialize(jsonMetadata.get(ATTRIBUTES_FIELD), listOfStrings);
-		Map<String, Object> filterAttributes = ctx.deserialize(jsonMetadata.get(FILTER_ATTRIBUTES_FIELD), map);
-		Set<List<String>> drillDowns = ctx.deserialize(jsonMetadata.get(DRILLDOWNS_FIELD), new TypeToken<Set<List<String>>>() {}.getType());
-
-		return new ReportingQueryResult(records, totals, count, drillDowns, dimensions, attributes, measures, filterAttributes);
+		return records;
 	}
 }

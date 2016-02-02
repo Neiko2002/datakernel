@@ -31,6 +31,7 @@ import io.datakernel.async.RunnableWithException;
 import io.datakernel.codegen.utils.DefiningClassLoader;
 import io.datakernel.cube.Cube;
 import io.datakernel.cube.CubeMetadataStorage;
+import io.datakernel.cube.DrillDown;
 import io.datakernel.dns.NativeDnsResolver;
 import io.datakernel.eventloop.Eventloop;
 import io.datakernel.eventloop.EventloopService;
@@ -69,6 +70,7 @@ import static io.datakernel.cube.api.ReportingDSL.divide;
 import static io.datakernel.cube.api.ReportingDSL.percent;
 import static io.datakernel.dns.NativeDnsResolver.DEFAULT_DATAGRAM_SOCKET_SETTINGS;
 import static java.util.Arrays.asList;
+import static java.util.Collections.singleton;
 import static java.util.Collections.singletonList;
 import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -233,7 +235,8 @@ public class ReportingTest {
 				.filters(new AggregationQuery.Predicates()
 						.eq("banner", 1)
 						.between("date", 1, 2))
-				.sort(AggregationQuery.Ordering.asc("ctr"));
+				.sort(AggregationQuery.Ordering.asc("ctr"))
+				.metadataFields("dimensions", "measures", "attributes", "drillDowns");
 
 		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];
 		startBlocking(httpClient);
@@ -278,9 +281,10 @@ public class ReportingTest {
 	public void testPaginationAndDrillDowns() throws Exception {
 		ReportingQuery query = new ReportingQuery()
 				.dimensions("date")
-				.measures("impressions")
+				.measures("impressions", "revenue")
 				.limit(1)
-				.offset(2);
+				.offset(2)
+				.metadataFields("drillDowns");
 
 		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];
 		startBlocking(httpClient);
@@ -306,10 +310,10 @@ public class ReportingTest {
 		assertEquals(15, ((Number) records.get(0).get("impressions")).intValue());
 		assertEquals(4, queryResult[0].getCount());
 
-		Set<List<String>> drillDowns = newHashSet();
-		drillDowns.add(singletonList("advertiser"));
-		drillDowns.add(asList("advertiser", "campaign"));
-		drillDowns.add(asList("advertiser", "campaign", "banner"));
+		Set<DrillDown> drillDowns = newHashSet();
+		drillDowns.add(new DrillDown(singletonList("advertiser"), singleton("impressions")));
+		drillDowns.add(new DrillDown(asList("advertiser", "campaign"), singleton("impressions")));
+		drillDowns.add(new DrillDown(asList("advertiser", "campaign", "banner"), singleton("impressions")));
 		assertEquals(drillDowns, queryResult[0].getDrillDowns());
 	}
 
@@ -320,7 +324,8 @@ public class ReportingTest {
 				.attributes("advertiserName")
 				.measures("impressions")
 				.limit(0)
-				.filters(new AggregationQuery.Predicates().eq("advertiser", 1));
+				.filters(new AggregationQuery.Predicates().eq("advertiser", 1))
+				.metadataFields("filterAttributes");
 
 		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];
 		startBlocking(httpClient);
@@ -350,7 +355,8 @@ public class ReportingTest {
 				.attributes("advertiserName")
 				.measures("clicks")
 				.ignoreMeasures(true)
-				.search("s");
+				.search("s")
+				.metadataFields("measures");
 
 		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];
 		startBlocking(httpClient);

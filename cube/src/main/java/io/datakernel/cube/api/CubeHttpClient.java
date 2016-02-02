@@ -107,6 +107,9 @@ public final class CubeHttpClient {
 		if (query.isIgnoreMeasures())
 			urlParams.put(IGNORE_MEASURES_PARAM, "1");
 
+		if (query.getMetadataFields() != null)
+			urlParams.put(METADATA_FIELDS_PARAM, gson.toJson(query.getMetadataFields()));
+
 		String url = domain + QUERY_REQUEST_PATH + "?" + HttpUtils.urlQueryString(urlParams);
 
 		return HttpRequest.get(url);
