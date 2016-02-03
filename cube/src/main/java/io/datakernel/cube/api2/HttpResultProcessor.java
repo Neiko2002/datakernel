@@ -47,14 +47,14 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		String response = constructResult(result.getRecords(), result.getRecordClass(), result.getTotals(),
 				result.getCount(), result.getDrillDowns(), result.getDimensions(), result.getAttributes(),
 				result.getMeasures(), result.getSortedBy(), result.getFilterAttributesPlaceholder(),
-				result.getFilterAttributes(), result.getMetadataFields());
+				result.getFilterAttributes(), result.getFields(), result.getMetadataFields());
 		return createResponse(response);
 	}
 
 	private String constructResult(List results, Class resultClass, TotalsPlaceholder totals, int count,
 	                               Set<DrillDown> drillDowns, List<String> dimensions, List<String> attributes,
 	                               List<String> measures, List<String> sortedBy, Object filterAttributesPlaceholder,
-	                               List<String> filterAttributes, Set<String> metadataFields) {
+	                               List<String> filterAttributes, Set<String> fields, Set<String> metadataFields) {
 		FieldGetter[] dimensionGetters = new FieldGetter[dimensions.size()];
 		KeyType[] keyTypes = new KeyType[dimensions.size()];
 		for (int i = 0; i < dimensions.size(); ++i) {
@@ -95,15 +95,12 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		if (emptyOrContains(metadataFields, "sortedBy"))
 			jsonMetadata.add("sortedBy", getJsonArrayFromList(sortedBy));
 
-		JsonArray jsonRecords = getRecordsJson(results, dimensions, attributes, measures, dimensionGetters,
+		JsonArray jsonRecords = getRecordsJson(results, fields, dimensions, attributes, measures, dimensionGetters,
 				attributeGetters, measureGetters, keyTypes);
 
 		JsonObject jsonResult = new JsonObject();
 		jsonResult.add("records", jsonRecords);
-
-		if (!measures.isEmpty())
-			jsonResult.add("totals", getTotalsJson(totals, measures));
-
+		jsonResult.add("totals", getTotalsJson(totals, measures));
 		jsonResult.add("metadata", jsonMetadata);
 		jsonResult.addProperty("count", count);
 		return jsonResult.toString();
@@ -119,7 +116,7 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		return jsonArray;
 	}
 
-	private JsonArray getRecordsJson(List results, List<String> dimensions, List<String> attributes,
+	private JsonArray getRecordsJson(List results, Set<String> fields, List<String> dimensions, List<String> attributes,
 	                                 List<String> measures, FieldGetter[] dimensionGetters,
 	                                 FieldGetter[] attributeGetters, FieldGetter[] measureGetters,
 	                                 KeyType[] keyTypes) {
@@ -129,18 +126,33 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 			JsonObject resultJsonObject = new JsonObject();
 
 			for (int n = 0; n < dimensions.size(); ++n) {
+				String dimension = dimensions.get(n);
+
+				if (!emptyOrContains(fields, dimension))
+					continue;
+
 				Object value = dimensionGetters[n].get(result);
 				JsonElement json = new JsonPrimitive(keyTypes[n].toString(value));
-				resultJsonObject.add(dimensions.get(n), json);
+				resultJsonObject.add(dimension, json);
 			}
 
 			for (int m = 0; m < attributes.size(); ++m) {
+				String attribute = attributes.get(m);
+
+				if (!emptyOrContains(fields, attribute))
+					continue;
+
 				Object value = attributeGetters[m].get(result);
-				resultJsonObject.add(attributes.get(m), value == null ? null : new JsonPrimitive(value.toString()));
+				resultJsonObject.add(attribute, value == null ? null : new JsonPrimitive(value.toString()));
 			}
 
 			for (int k = 0; k < measures.size(); ++k) {
-				resultJsonObject.add(measures.get(k), new JsonPrimitive((Number) measureGetters[k].get(result)));
+				String measure = measures.get(k);
+
+				if (!emptyOrContains(fields, measure))
+					continue;
+
+				resultJsonObject.add(measure, new JsonPrimitive((Number) measureGetters[k].get(result)));
 			}
 
 			jsonRecords.add(resultJsonObject);

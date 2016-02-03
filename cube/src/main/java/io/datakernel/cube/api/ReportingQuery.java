@@ -34,12 +34,12 @@ public final class ReportingQuery {
 	private Integer limit;
 	private Integer offset;
 	private String searchString;
-	private boolean ignoreMeasures;
+	private Set<String> fields;
 	private Set<String> metadataFields;
 
 	public ReportingQuery(List<String> dimensions, List<String> measures, List<String> attributes,
 	                      AggregationQuery.QueryPredicates filters, List<AggregationQuery.QueryOrdering> sort,
-	                      Integer limit, Integer offset, String searchString, boolean ignoreMeasures,
+	                      Integer limit, Integer offset, String searchString, Set<String> fields,
 	                      Set<String> metadataFields) {
 		this.dimensions = dimensions;
 		this.measures = measures;
@@ -48,8 +48,8 @@ public final class ReportingQuery {
 		this.sort = sort;
 		this.limit = limit;
 		this.offset = offset;
-		this.ignoreMeasures = ignoreMeasures;
 		this.searchString = searchString;
+		this.fields = fields;
 		this.metadataFields = metadataFields;
 	}
 
@@ -141,6 +141,19 @@ public final class ReportingQuery {
 		return searchString;
 	}
 
+	public ReportingQuery fields(Set<String> fields) {
+		this.fields = fields;
+		return this;
+	}
+
+	public ReportingQuery fields(String... fields) {
+		return fields(newHashSet(fields));
+	}
+
+	public Set<String> getFields() {
+		return fields;
+	}
+
 	public ReportingQuery metadataFields(Set<String> metadataFields) {
 		this.metadataFields = metadataFields;
 		return this;
@@ -154,15 +167,6 @@ public final class ReportingQuery {
 		return metadataFields;
 	}
 
-	public ReportingQuery ignoreMeasures(boolean ignoreMeasures) {
-		this.ignoreMeasures = ignoreMeasures;
-		return this;
-	}
-
-	public boolean isIgnoreMeasures() {
-		return ignoreMeasures;
-	}
-
 	@Override
 	public String toString() {
 		return MoreObjects.toStringHelper(this)
@@ -173,9 +177,9 @@ public final class ReportingQuery {
 				.add("sort", sort)
 				.add("limit", limit)
 				.add("offset", offset)
-				.add("ignoreMeasures", ignoreMeasures)
-				.add("metadataFields", metadataFields)
 				.add("searchString", searchString)
+				.add("fields", fields)
+				.add("metadataFields", metadataFields)
 				.toString();
 	}
 }

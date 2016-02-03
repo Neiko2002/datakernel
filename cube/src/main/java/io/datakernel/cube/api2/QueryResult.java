@@ -39,12 +39,13 @@ public final class QueryResult {
 	private final Object filterAttributesPlaceholder;
 	private final List<String> filterAttributes;
 
+	private final Set<String> fields;
 	private final Set<String> metadataFields;
 
 	public QueryResult(List records, Class recordClass, TotalsPlaceholder totals,
 	                   int count, Set<DrillDown> drillDowns, List<String> dimensions, List<String> attributes,
 	                   List<String> measures, List<String> sortedBy, Object filterAttributesPlaceholder,
-	                   List<String> filterAttributes, Set<String> metadataFields) {
+	                   List<String> filterAttributes, Set<String> fields, Set<String> metadataFields) {
 		this.records = records;
 		this.recordClass = recordClass;
 		this.totals = totals;
@@ -56,6 +57,7 @@ public final class QueryResult {
 		this.sortedBy = sortedBy;
 		this.filterAttributesPlaceholder = filterAttributesPlaceholder;
 		this.filterAttributes = filterAttributes;
+		this.fields = fields;
 		this.metadataFields = metadataFields;
 	}
 
@@ -103,6 +105,10 @@ public final class QueryResult {
 		return filterAttributes;
 	}
 
+	public Set<String> getFields() {
+		return fields;
+	}
+
 	public Set<String> getMetadataFields() {
 		return metadataFields;
 	}
@@ -121,6 +127,7 @@ public final class QueryResult {
 				.add("sortedBy", sortedBy)
 				.add("filterAttributesPlaceholder", filterAttributesPlaceholder)
 				.add("filterAttributes", filterAttributes)
+				.add("fields", fields)
 				.add("metadataFields", metadataFields)
 				.toString();
 	}

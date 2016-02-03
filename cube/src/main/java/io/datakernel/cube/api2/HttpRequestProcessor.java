@@ -39,8 +39,8 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 	public static final String SORT_PARAM = "sort";
 	public static final String LIMIT_PARAM = "limit";
 	public static final String OFFSET_PARAM = "offset";
-	public static final String IGNORE_MEASURES_PARAM = "ignore-measures";
 	public static final String SEARCH_PARAM = "search";
+	public static final String FIELDS_PARAM = "fields";
 	public static final String METADATA_FIELDS_PARAM = "metadata";
 
 	private final Gson gson;
@@ -58,15 +58,15 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		List<AggregationQuery.QueryOrdering> ordering = parseOrdering(request.getParameter(SORT_PARAM));
 		Integer limit = valueOrNull(request.getParameter(LIMIT_PARAM));
 		Integer offset = valueOrNull(request.getParameter(OFFSET_PARAM));
-		boolean ignoreMeasures = getBoolean(request.getParameter(IGNORE_MEASURES_PARAM));
 		String searchString = request.getParameter(SEARCH_PARAM);
+		Set<String> fields = parseSetOfStrings(request.getParameter(FIELDS_PARAM));
 		Set<String> metadataFields = parseSetOfStrings(request.getParameter(METADATA_FIELDS_PARAM));
 
 		if (dimensions.isEmpty() && attributes.isEmpty())
 			throw new QueryException("At least one dimension or attribute must be specified");
 
 		return new ReportingQuery(dimensions, measures, attributes, predicates, ordering, limit, offset, searchString,
-				ignoreMeasures, metadataFields);
+				fields, metadataFields);
 	}
 
 	private AggregationQuery.QueryPredicates parsePredicates(String json) {
@@ -113,15 +113,5 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		if (str == null)
 			return null;
 		return str.isEmpty() ? null : Integer.valueOf(str);
-	}
-
-	private static boolean getBoolean(String str) {
-		if (str == null || str.equals("0") || str.equals("false"))
-			return false;
-
-		if (str.equals("1") || str.equals("true"))
-			return true;
-
-		throw new QueryException("Incorrect boolean value: '" + str + "'. Allowed values: 1, 0, true, false");
 	}
 }

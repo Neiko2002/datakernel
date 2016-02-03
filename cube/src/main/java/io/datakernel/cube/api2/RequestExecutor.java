@@ -96,7 +96,7 @@ public final class RequestExecutor {
 		Set<String> storedMeasures = newHashSet();
 		Set<String> computedMeasures = newHashSet();
 
-		boolean ignoreMeasures;
+		Set<String> fields;
 		Set<String> metadataFields;
 
 		List<String> attributes = newArrayList();
@@ -122,7 +122,7 @@ public final class RequestExecutor {
 			limit = reportingQuery.getLimit();
 			offset = reportingQuery.getOffset();
 			searchString = reportingQuery.getSearchString();
-			ignoreMeasures = reportingQuery.isIgnoreMeasures();
+			fields = reportingQuery.getFields();
 			metadataFields = reportingQuery.getMetadataFields();
 
 			processAttributes();
@@ -360,11 +360,7 @@ public final class RequestExecutor {
 			sort(results);
 			TotalsPlaceholder totalsPlaceholder = computeTotals(results);
 
-			List<String> resultMeasures;
-			if (ignoreMeasures)
-				resultMeasures = newArrayList();
-			else
-				resultMeasures = newArrayList(filter(concat(storedMeasures, computedMeasures),
+			List<String> resultMeasures = newArrayList(filter(concat(storedMeasures, computedMeasures),
 						new Predicate<String>() {
 							@Override
 							public boolean apply(String measure) {
@@ -384,7 +380,8 @@ public final class RequestExecutor {
 					this.filterAttributes : null;
 
 			return new QueryResult(results, resultClass, totalsPlaceholder, count, drillDowns, dimensions, attributes,
-					resultMeasures, appliedOrderings, filterAttributesPlaceholder, filterAttributes, metadataFields);
+					resultMeasures, appliedOrderings, filterAttributesPlaceholder, filterAttributes, fields,
+					metadataFields);
 		}
 
 		List performSearch(List results) {
