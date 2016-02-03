@@ -33,10 +33,12 @@ public final class ReportingQueryResult {
 	private final List<String> attributes;
 	private final List<String> measures;
 	private final Map<String, Object> filterAttributes;
+	private final List<String> sortedBy;
 
 	public ReportingQueryResult(List<Map<String, Object>> records, Map<String, Object> totals, int count,
 	                            Set<DrillDown> drillDowns, List<String> dimensions, List<String> attributes,
-	                            List<String> measures, Map<String, Object> filterAttributes) {
+	                            List<String> measures, Map<String, Object> filterAttributes,
+	                            List<String> sortedBy) {
 		this.records = records;
 		this.totals = totals;
 		this.count = count;
@@ -45,6 +47,7 @@ public final class ReportingQueryResult {
 		this.attributes = attributes;
 		this.measures = measures;
 		this.filterAttributes = filterAttributes;
+		this.sortedBy = sortedBy;
 	}
 
 	public List<Map<String, Object>> getRecords() {
@@ -79,6 +82,10 @@ public final class ReportingQueryResult {
 		return filterAttributes;
 	}
 
+	public List<String> getSortedBy() {
+		return sortedBy;
+	}
+
 	@Override
 	public String toString() {
 		return MoreObjects.toStringHelper(this)
@@ -90,6 +97,7 @@ public final class ReportingQueryResult {
 				.add("attributes", attributes)
 				.add("measures", measures)
 				.add("filterAttributes", filterAttributes)
+				.add("sortedBy", sortedBy)
 				.toString();
 	}
 }

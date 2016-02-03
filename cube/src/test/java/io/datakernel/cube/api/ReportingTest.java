@@ -235,8 +235,9 @@ public class ReportingTest {
 				.filters(new AggregationQuery.Predicates()
 						.eq("banner", 1)
 						.between("date", 1, 2))
-				.sort(AggregationQuery.Ordering.asc("campaign"), AggregationQuery.Ordering.asc("ctr"))
-				.metadataFields("dimensions", "measures", "attributes", "drillDowns");
+				.sort(AggregationQuery.Ordering.asc("campaign"), AggregationQuery.Ordering.asc("ctr"),
+						AggregationQuery.Ordering.desc("banner"))
+				.metadataFields("dimensions", "measures", "attributes", "drillDowns", "sortedBy");
 
 		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];
 		startBlocking(httpClient);
@@ -269,6 +270,7 @@ public class ReportingTest {
 		assertEquals(2, queryResult[0].getCount());
 		assertEquals(newHashSet("impressions", "clicks", "ctr"), newHashSet(queryResult[0].getMeasures()));
 		assertEquals(newHashSet("date", "advertiser", "campaign"), newHashSet(queryResult[0].getDimensions()));
+		assertEquals(newHashSet("campaign", "ctr"), newHashSet(queryResult[0].getSortedBy()));
 		assertTrue(queryResult[0].getDrillDowns().isEmpty());
 		assertTrue(queryResult[0].getAttributes().isEmpty());
 		Map<String, Object> totals = queryResult[0].getTotals();
