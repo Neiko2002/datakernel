@@ -31,8 +31,7 @@ import io.datakernel.http.HttpResponse;
 import java.util.List;
 import java.util.Set;
 
-import static io.datakernel.cube.api.CommonUtils.createResponse;
-import static io.datakernel.cube.api.CommonUtils.generateGetter;
+import static io.datakernel.cube.api.CommonUtils.*;
 
 public final class HttpResultProcessor implements ResultProcessor<HttpResponse> {
 	private final DefiningClassLoader classLoader;
@@ -78,22 +77,22 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 
 		JsonObject jsonMetadata = new JsonObject();
 
-		if (metadataFields.contains("dimensions"))
+		if (emptyOrContains(metadataFields, "dimensions"))
 			jsonMetadata.add("dimensions", getJsonArrayFromList(dimensions));
 
-		if (metadataFields.contains("attributes"))
+		if (emptyOrContains(metadataFields, "attributes"))
 			jsonMetadata.add("attributes", getJsonArrayFromList(attributes));
 
-		if (metadataFields.contains("measures"))
+		if (emptyOrContains(metadataFields, "measures"))
 			jsonMetadata.add("measures", getJsonArrayFromList(measures));
 
-		if (metadataFields.contains("filterAttributes"))
+		if (emptyOrContains(metadataFields, "filterAttributes"))
 			jsonMetadata.add("filterAttributes", getFilterAttributesJson(filterAttributes, filterAttributesPlaceholder));
 
-		if (metadataFields.contains("drillDowns"))
+		if (emptyOrContains(metadataFields, "drillDowns"))
 			jsonMetadata.add("drillDowns", getDrillDownsJson(drillDowns));
 
-		if (metadataFields.contains("sortedBy"))
+		if (emptyOrContains(metadataFields, "sortedBy"))
 			jsonMetadata.add("sortedBy", getJsonArrayFromList(sortedBy));
 
 		JsonArray jsonRecords = getRecordsJson(results, dimensions, attributes, measures, dimensionGetters,
@@ -105,11 +104,8 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		if (!measures.isEmpty())
 			jsonResult.add("totals", getTotalsJson(totals, measures));
 
-		if (!metadataFields.isEmpty())
-			jsonResult.add("metadata", jsonMetadata);
-
+		jsonResult.add("metadata", jsonMetadata);
 		jsonResult.addProperty("count", count);
-
 		return jsonResult.toString();
 	}
 

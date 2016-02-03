@@ -44,6 +44,7 @@ import static com.google.common.collect.Maps.newHashMap;
 import static com.google.common.collect.Maps.newLinkedHashMap;
 import static com.google.common.collect.Sets.newHashSet;
 import static io.datakernel.codegen.Expressions.*;
+import static io.datakernel.cube.api.CommonUtils.emptyOrContains;
 import static io.datakernel.cube.api.CommonUtils.instantiate;
 import static java.util.Collections.singletonList;
 
@@ -240,7 +241,7 @@ public final class RequestExecutor {
 		}
 
 		void buildDrillDowns() {
-			if (metadataFields.contains("drillDowns"))
+			if (emptyOrContains(metadataFields, "drillDowns"))
 				drillDowns = cube.getDrillDowns(storedDimensions, queryPredicates, queryStoredMeasures);
 		}
 
@@ -251,7 +252,7 @@ public final class RequestExecutor {
 				if (all(dependencies, in(storedMeasures)))
 					computedMeasures.add(computedMeasure);
 
-				if (metadataFields.contains("drillDowns")) {
+				if (emptyOrContains(metadataFields, "drillDowns")) {
 					for (DrillDown drillDown : drillDowns) {
 						if (all(dependencies, in(drillDown.getMeasures())))
 							drillDown.getMeasures().add(computedMeasure);
@@ -346,7 +347,7 @@ public final class RequestExecutor {
 		void processResults(List<QueryResultPlaceholder> results, ResultCallback<QueryResult> callback) {
 			Class filterAttributesClass;
 			Object filterAttributesPlaceholder = null;
-			if (metadataFields.contains("filterAttributes")) {
+			if (emptyOrContains(metadataFields, "filterAttributes")) {
 				filterAttributesClass = createFilterAttributesClass();
 				filterAttributesPlaceholder = instantiate(filterAttributesClass);
 				resolver.resolve(singletonList(filterAttributesPlaceholder), filterAttributesClass, filterAttributeTypes,
@@ -379,7 +380,8 @@ public final class RequestExecutor {
 		                        int count, List<String> resultMeasures, Object filterAttributesPlaceholder) {
 			List<String> dimensions = newArrayList(storedDimensions);
 			List<String> attributes = this.attributes;
-			List<String> filterAttributes = metadataFields.contains("filterAttributes") ? this.filterAttributes : null;
+			List<String> filterAttributes = emptyOrContains(metadataFields, "filterAttributes") ?
+					this.filterAttributes : null;
 
 			return new QueryResult(results, resultClass, totalsPlaceholder, count, drillDowns, dimensions, attributes,
 					resultMeasures, appliedOrderings, filterAttributesPlaceholder, filterAttributes, metadataFields);
