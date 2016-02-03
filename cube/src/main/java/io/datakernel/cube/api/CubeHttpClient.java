@@ -18,10 +18,9 @@ package io.datakernel.cube.api;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonPrimitive;
 import io.datakernel.aggregation_db.AggregationQuery;
 import io.datakernel.aggregation_db.AggregationStructure;
+import io.datakernel.aggregation_db.gson.QueryOrderingGsonSerializer;
 import io.datakernel.aggregation_db.gson.QueryPredicatesGsonSerializer;
 import io.datakernel.async.ResultCallback;
 import io.datakernel.http.*;
@@ -47,6 +46,7 @@ public final class CubeHttpClient {
 		this.gson = new GsonBuilder()
 				.registerTypeAdapter(AggregationQuery.Predicates.class, new QueryPredicatesGsonSerializer(structure))
 				.registerTypeAdapter(ReportingQueryResult.class, new ReportingQueryResponseDeserializer(structure, reportingConfiguration))
+				.registerTypeAdapter(AggregationQuery.Ordering.class, new QueryOrderingGsonSerializer())
 				.create();
 	}
 
@@ -93,7 +93,7 @@ public final class CubeHttpClient {
 			urlParams.put(FILTERS_PARAM, gson.toJson(query.getFilters()));
 
 		if (query.getSort() != null)
-			urlParams.put(SORT_PARAM, toJson(query.getSort()));
+			urlParams.put(SORT_PARAM, gson.toJson(query.getSort()));
 
 		if (query.getLimit() != null)
 			urlParams.put(LIMIT_PARAM, query.getLimit().toString());
@@ -113,12 +113,5 @@ public final class CubeHttpClient {
 		String url = domain + QUERY_REQUEST_PATH + "?" + HttpUtils.urlQueryString(urlParams);
 
 		return HttpRequest.get(url);
-	}
-
-	private String toJson(AggregationQuery.Ordering ordering) {
-		JsonArray jsonArray = new JsonArray();
-		jsonArray.add(new JsonPrimitive(ordering.getPropertyName()));
-		jsonArray.add(new JsonPrimitive(ordering.isAsc() ? "asc" : "desc"));
-		return jsonArray.toString();
 	}
 }

@@ -19,6 +19,7 @@ package io.datakernel.cube.api;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import io.datakernel.aggregation_db.AggregationQuery;
+import io.datakernel.aggregation_db.gson.QueryOrderingGsonSerializer;
 import io.datakernel.aggregation_db.gson.QueryPredicatesGsonSerializer;
 import io.datakernel.async.ResultCallback;
 import io.datakernel.codegen.utils.DefiningClassLoader;
@@ -37,6 +38,7 @@ public final class CubeHttpServer {
 	public static MiddlewareServlet createServlet(Cube cube, Eventloop eventloop, DefiningClassLoader classLoader) {
 		final Gson gson = new GsonBuilder()
 				.registerTypeAdapter(AggregationQuery.Predicates.class, new QueryPredicatesGsonSerializer(cube.getStructure()))
+				.registerTypeAdapter(AggregationQuery.Ordering.class, new QueryOrderingGsonSerializer())
 				.create();
 
 		MiddlewareServlet servlet = new MiddlewareServlet();

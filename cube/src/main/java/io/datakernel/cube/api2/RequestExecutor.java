@@ -100,7 +100,7 @@ public final class RequestExecutor {
 
 		List<String> attributes = newArrayList();
 
-		AggregationQuery.Ordering ordering;
+		List<AggregationQuery.Ordering> orderings;
 		boolean additionalSortingRequired;
 
 		Class<QueryResultPlaceholder> resultClass;
@@ -115,7 +115,7 @@ public final class RequestExecutor {
 			queryPredicates = reportingQuery.getFilters();
 			predicates = transformPredicates(queryPredicates);
 			attributes = reportingQuery.getAttributes();
-			ordering = reportingQuery.getSort();
+			orderings = reportingQuery.getSort();
 			limit = reportingQuery.getLimit();
 			offset = reportingQuery.getOffset();
 			searchString = reportingQuery.getSearchString();
@@ -136,7 +136,7 @@ public final class RequestExecutor {
 
 			resultClass = createResultClass();
 			StreamConsumers.ToList<QueryResultPlaceholder> consumerStream = queryCube();
-			comparator = additionalSortingRequired ? generateComparator(ordering.getPropertyName(), ordering.isAsc(), resultClass) : null;
+			comparator = additionalSortingRequired ? generateComparator() : null;
 
 			consumerStream.setResultCallback(new ResultCallback<List<QueryResultPlaceholder>>() {
 				@Override
@@ -259,19 +259,29 @@ public final class RequestExecutor {
 		}
 
 		void processOrdering() {
-			if (ordering == null)
+			if (orderings == null)
 				return;
 
-			additionalSortingRequired = computedMeasures.contains(ordering.getPropertyName())
-					|| attributeTypes.containsKey(ordering.getPropertyName());
+			for (AggregationQuery.Ordering ordering : orderings) {
+				String orderingField = ordering.getPropertyName();
+				additionalSortingRequired = computedMeasures.contains(orderingField)
+						|| attributeTypes.containsKey(orderingField);
 
-			if (!storedDimensions.contains(ordering.getPropertyName())
-					&& !storedMeasures.contains(ordering.getPropertyName()) && !additionalSortingRequired) {
-				throw new QueryException("Ordering is specified by not requested field");
+				if (!storedDimensions.contains(orderingField)
+						&& !storedMeasures.contains(orderingField)
+						&& !predicates.containsKey(orderingField)
+						&& !additionalSortingRequired) {
+					throw new QueryException("Ordering is specified by not requested field: '" + orderingField + "'");
+				}
 			}
 
-			if (!additionalSortingRequired)
-				query.ordering(ordering);
+			if (additionalSortingRequired)
+				return;
+
+			for (AggregationQuery.Ordering ordering : orderings) {
+				if (!(predicates.get(ordering.getPropertyName()) instanceof AggregationQuery.PredicateEq))
+					query.ordering(ordering);
+			}
 		}
 
 		Class<QueryResultPlaceholder> createResultClass() {
@@ -307,18 +317,20 @@ public final class RequestExecutor {
 		}
 
 		@SuppressWarnings("unchecked")
-		Comparator<QueryResultPlaceholder> generateComparator(String fieldName, boolean ascending,
-		                                                      Class<QueryResultPlaceholder> fieldClass) {
+		Comparator<QueryResultPlaceholder> generateComparator() {
 			AsmBuilder<Comparator> builder = new AsmBuilder<>(classLoader, Comparator.class);
 			ExpressionComparatorNullable comparator = comparatorNullable();
-			if (ascending)
-				comparator.add(
-						getter(cast(arg(0), fieldClass), fieldName),
-						getter(cast(arg(1), fieldClass), fieldName));
-			else
-				comparator.add(
-						getter(cast(arg(1), fieldClass), fieldName),
-						getter(cast(arg(0), fieldClass), fieldName));
+
+			for (AggregationQuery.Ordering ordering : orderings) {
+				if (ordering.isAsc())
+					comparator.add(
+							getter(cast(arg(0), resultClass), ordering.getPropertyName()),
+							getter(cast(arg(1), resultClass), ordering.getPropertyName()));
+				else
+					comparator.add(
+							getter(cast(arg(1), resultClass), ordering.getPropertyName()),
+							getter(cast(arg(0), resultClass), ordering.getPropertyName()));
+			}
 
 			builder.method("compare", comparator);
 
@@ -327,7 +339,7 @@ public final class RequestExecutor {
 
 		@SuppressWarnings("unchecked")
 		void processResults(List<QueryResultPlaceholder> results, ResultCallback<QueryResult> callback) {
-			Class filterAttributesClass = null;
+			Class filterAttributesClass;
 			Object filterAttributesPlaceholder = null;
 			if (metadataFields.contains("filterAttributes")) {
 				filterAttributesClass = createFilterAttributesClass();
@@ -355,12 +367,11 @@ public final class RequestExecutor {
 						}));
 
 			callback.onResult(buildResult(applyLimitAndOffset(results), totalsPlaceholder, results.size(),
-					resultMeasures, filterAttributesPlaceholder, filterAttributesClass));
+					resultMeasures, filterAttributesPlaceholder));
 		}
 
 		QueryResult buildResult(List results, TotalsPlaceholder totalsPlaceholder,
-		                        int count, List<String> resultMeasures, Object filterAttributesPlaceholder,
-		                        Class filterAttributesClass) {
+		                        int count, List<String> resultMeasures, Object filterAttributesPlaceholder) {
 			List<String> dimensions = newArrayList(storedDimensions);
 			List<String> attributes = this.attributes;
 			List<String> filterAttributes = metadataFields.contains("filterAttributes") ? this.filterAttributes : null;

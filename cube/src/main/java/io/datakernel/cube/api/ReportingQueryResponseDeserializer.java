@@ -48,7 +48,7 @@ public class ReportingQueryResponseDeserializer implements JsonDeserializer<Repo
 		List<Map<String, Object>> records = deserializeRecords(jsonRecords);
 
 		Type map = new TypeToken<Map<String, Object>>() {}.getType();
-		JsonObject jsonTotals = json.get(TOTALS_FIELD).getAsJsonObject();
+		JsonObject jsonTotals = json.get(TOTALS_FIELD) == null ? null : json.get(TOTALS_FIELD).getAsJsonObject();
 		Map<String, Object> totals = ctx.deserialize(jsonTotals, map);
 
 		Type listOfStrings = new TypeToken<List<String>>() {}.getType();

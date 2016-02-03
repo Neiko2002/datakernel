@@ -235,7 +235,7 @@ public class ReportingTest {
 				.filters(new AggregationQuery.Predicates()
 						.eq("banner", 1)
 						.between("date", 1, 2))
-				.sort(AggregationQuery.Ordering.asc("ctr"))
+				.sort(AggregationQuery.Ordering.asc("campaign"), AggregationQuery.Ordering.asc("ctr"))
 				.metadataFields("dimensions", "measures", "attributes", "drillDowns");
 
 		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];

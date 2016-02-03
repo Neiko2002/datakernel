@@ -57,8 +57,6 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 	                               Set<DrillDown> drillDowns, List<String> dimensions, List<String> attributes,
 	                               List<String> measures, Object filterAttributesPlaceholder,
 	                               List<String> filterAttributes, Set<String> metadataFields) {
-		JsonObject jsonMetadata = new JsonObject();
-
 		FieldGetter[] dimensionGetters = new FieldGetter[dimensions.size()];
 		KeyType[] keyTypes = new KeyType[dimensions.size()];
 		for (int i = 0; i < dimensions.size(); ++i) {
@@ -79,6 +77,8 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 			measureGetters[i] = generateGetter(classLoader, resultClass, field);
 		}
 
+		JsonObject jsonMetadata = new JsonObject();
+
 		if (metadataFields.contains(DIMENSIONS_FIELD))
 			jsonMetadata.add(DIMENSIONS_FIELD, getJsonArrayFromList(dimensions));
 
@@ -97,12 +97,15 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		JsonArray jsonRecords = getRecordsJson(results, dimensions, attributes, measures, dimensionGetters,
 				attributeGetters, measureGetters, keyTypes);
 
-		JsonObject jsonTotals = getTotalsJson(totals, measures);
-
 		JsonObject jsonResult = new JsonObject();
 		jsonResult.add(RECORDS_FIELD, jsonRecords);
-		jsonResult.add(TOTALS_FIELD, jsonTotals);
-		jsonResult.add(METADATA_FIELD, jsonMetadata);
+
+		if (!measures.isEmpty())
+			jsonResult.add(TOTALS_FIELD, getTotalsJson(totals, measures));
+
+		if (!metadataFields.isEmpty())
+			jsonResult.add(METADATA_FIELD, jsonMetadata);
+
 		jsonResult.addProperty(COUNT_FIELD, count);
 
 		return jsonResult.toString();
