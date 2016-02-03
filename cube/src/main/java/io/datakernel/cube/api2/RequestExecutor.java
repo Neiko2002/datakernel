@@ -100,7 +100,9 @@ public final class RequestExecutor {
 
 		List<String> attributes = newArrayList();
 
-		List<AggregationQuery.QueryOrdering> orderings;
+		List<AggregationQuery.QueryOrdering> queryOrderings;
+		List<AggregationQuery.QueryOrdering> additionalOrderings = newArrayList();
+		List<String> appliedOrderings = newArrayList();
 		boolean additionalSortingRequired;
 
 		Class<QueryResultPlaceholder> resultClass;
@@ -115,7 +117,7 @@ public final class RequestExecutor {
 			queryPredicates = reportingQuery.getFilters();
 			predicates = transformPredicates(queryPredicates);
 			attributes = reportingQuery.getAttributes();
-			orderings = reportingQuery.getSort();
+			queryOrderings = reportingQuery.getSort();
 			limit = reportingQuery.getLimit();
 			offset = reportingQuery.getOffset();
 			searchString = reportingQuery.getSearchString();
@@ -259,28 +261,31 @@ public final class RequestExecutor {
 		}
 
 		void processOrdering() {
-			if (orderings == null)
+			if (queryOrderings == null)
 				return;
 
-			for (AggregationQuery.QueryOrdering ordering : orderings) {
+			for (AggregationQuery.QueryOrdering ordering : queryOrderings) {
 				String orderingField = ordering.getPropertyName();
-				additionalSortingRequired = computedMeasures.contains(orderingField)
+				additionalSortingRequired |= computedMeasures.contains(orderingField)
 						|| attributeTypes.containsKey(orderingField);
-
-				if (!storedDimensions.contains(orderingField)
-						&& !storedMeasures.contains(orderingField)
-						&& !predicates.containsKey(orderingField)
-						&& !additionalSortingRequired) {
-					throw new QueryException("Ordering is specified by not requested field: '" + orderingField + "'");
-				}
 			}
 
-			if (additionalSortingRequired)
-				return;
+			for (AggregationQuery.QueryOrdering ordering : queryOrderings) {
+				String orderingField = ordering.getPropertyName();
 
-			for (AggregationQuery.QueryOrdering ordering : orderings) {
-				if (!(predicates.get(ordering.getPropertyName()) instanceof AggregationQuery.QueryPredicateEq))
+				if (predicates.get(orderingField) instanceof AggregationQuery.QueryPredicateEq)
+					continue;
+
+				if (additionalSortingRequired) {
+					if (computedMeasures.contains(orderingField) || attributeTypes.containsKey(orderingField) ||
+							storedDimensions.contains(orderingField) || storedMeasures.contains(orderingField)) {
+						additionalOrderings.add(ordering);
+						appliedOrderings.add(orderingField);
+					}
+				} else if (storedDimensions.contains(orderingField) || storedMeasures.contains(orderingField)) {
 					query.ordering(ordering);
+					appliedOrderings.add(orderingField);
+				}
 			}
 		}
 
@@ -321,7 +326,7 @@ public final class RequestExecutor {
 			AsmBuilder<Comparator> builder = new AsmBuilder<>(classLoader, Comparator.class);
 			ExpressionComparatorNullable comparator = comparatorNullable();
 
-			for (AggregationQuery.QueryOrdering ordering : orderings) {
+			for (AggregationQuery.QueryOrdering ordering : additionalOrderings) {
 				if (ordering.isAsc())
 					comparator.add(
 							getter(cast(arg(0), resultClass), ordering.getPropertyName()),
@@ -377,7 +382,7 @@ public final class RequestExecutor {
 			List<String> filterAttributes = metadataFields.contains("filterAttributes") ? this.filterAttributes : null;
 
 			return new QueryResult(results, resultClass, totalsPlaceholder, count, drillDowns, dimensions, attributes,
-					resultMeasures, filterAttributesPlaceholder, filterAttributes, metadataFields);
+					resultMeasures, appliedOrderings, filterAttributesPlaceholder, filterAttributes, metadataFields);
 		}
 
 		List performSearch(List results) {

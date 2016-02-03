@@ -47,14 +47,14 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 	public HttpResponse apply(QueryResult result) {
 		String response = constructResult(result.getRecords(), result.getRecordClass(), result.getTotals(),
 				result.getCount(), result.getDrillDowns(), result.getDimensions(), result.getAttributes(),
-				result.getMeasures(), result.getFilterAttributesPlaceholder(), result.getFilterAttributes(),
-				result.getMetadataFields());
+				result.getMeasures(), result.getSortedBy(), result.getFilterAttributesPlaceholder(),
+				result.getFilterAttributes(), result.getMetadataFields());
 		return createResponse(response);
 	}
 
 	private String constructResult(List results, Class resultClass, TotalsPlaceholder totals, int count,
 	                               Set<DrillDown> drillDowns, List<String> dimensions, List<String> attributes,
-	                               List<String> measures, Object filterAttributesPlaceholder,
+	                               List<String> measures, List<String> sortedBy, Object filterAttributesPlaceholder,
 	                               List<String> filterAttributes, Set<String> metadataFields) {
 		FieldGetter[] dimensionGetters = new FieldGetter[dimensions.size()];
 		KeyType[] keyTypes = new KeyType[dimensions.size()];
@@ -92,6 +92,9 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 
 		if (metadataFields.contains("drillDowns"))
 			jsonMetadata.add("drillDowns", getDrillDownsJson(drillDowns));
+
+		if (metadataFields.contains("sortedBy"))
+			jsonMetadata.add("sortedBy", getJsonArrayFromList(sortedBy));
 
 		JsonArray jsonRecords = getRecordsJson(results, dimensions, attributes, measures, dimensionGetters,
 				attributeGetters, measureGetters, keyTypes);
