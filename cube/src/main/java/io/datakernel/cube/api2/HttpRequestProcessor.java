@@ -17,6 +17,7 @@
 package io.datakernel.cube.api2;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import io.datakernel.aggregation_db.AggregationQuery;
 import io.datakernel.aggregation_db.api.QueryException;
 import io.datakernel.cube.api.ReportingQuery;
@@ -54,7 +55,7 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		List<String> measures = parseMeasures(request.getParameter(MEASURES_PARAM));
 		List<String> attributes = parseListOfStrings(request.getParameter(ATTRIBUTES_PARAM));
 		AggregationQuery.QueryPredicates predicates = parsePredicates(request.getParameter(FILTERS_PARAM));
-		AggregationQuery.QueryOrdering ordering = parseOrdering(request.getParameter(SORT_PARAM));
+		List<AggregationQuery.QueryOrdering> ordering = parseOrdering(request.getParameter(SORT_PARAM));
 		Integer limit = valueOrNull(request.getParameter(LIMIT_PARAM));
 		Integer offset = valueOrNull(request.getParameter(OFFSET_PARAM));
 		boolean ignoreMeasures = getBoolean(request.getParameter(IGNORE_MEASURES_PARAM));
@@ -76,6 +77,13 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		}
 
 		return predicates == null ? new AggregationQuery.QueryPredicates() : predicates;
+	}
+
+	private List<AggregationQuery.QueryOrdering> parseOrdering(String json) {
+		if (json == null)
+			return null;
+
+		return gson.fromJson(json, new TypeToken<List<AggregationQuery.QueryOrdering>>() {}.getType());
 	}
 
 	private List<String> parseMeasures(String json) {
@@ -101,27 +109,6 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		return getSetOfStrings(gson, json);
 	}
 
-	private AggregationQuery.QueryOrdering parseOrdering(String json) {
-		List<String> ordering = parseListOfStrings(json);
-
-		if (ordering.isEmpty())
-			return null;
-
-		if (ordering.size() != 2)
-			throw new QueryException("Incorrect 'sort' parameter format");
-
-		String field = ordering.get(0);
-		String direction = ordering.get(1);
-
-		if (direction.equals("asc"))
-			return AggregationQuery.QueryOrdering.asc(field);
-
-		if (direction.equals("desc"))
-			return AggregationQuery.QueryOrdering.desc(field);
-
-		throw new QueryException("Incorrect ordering specified in 'sort' parameter");
-	}
-
 	private static Integer valueOrNull(String str) {
 		if (str == null)
 			return null;
@@ -129,6 +116,12 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 	}
 
 	private static boolean getBoolean(String str) {
-		return str != null && (str.equals("1") || str.equals("true"));
+		if (str == null || str.equals("0") || str.equals("false"))
+			return false;
+
+		if (str.equals("1") || str.equals("true"))
+			return true;
+
+		throw new QueryException("Incorrect boolean value: '" + str + "'. Allowed values: 1, 0, true, false");
 	}
 }
