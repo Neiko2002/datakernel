@@ -31,8 +31,7 @@ import io.datakernel.http.HttpResponse;
 import java.util.List;
 import java.util.Set;
 
-import static io.datakernel.cube.api.CommonUtils.createResponse;
-import static io.datakernel.cube.api.CommonUtils.generateGetter;
+import static io.datakernel.cube.api.CommonUtils.*;
 import static io.datakernel.cube.api2.HttpJsonConstants.*;
 
 public final class HttpResultProcessor implements ResultProcessor<HttpResponse> {
@@ -48,15 +47,15 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 	public HttpResponse apply(QueryResult result) {
 		String response = constructResult(result.getRecords(), result.getRecordClass(), result.getTotals(),
 				result.getCount(), result.getDrillDowns(), result.getDimensions(), result.getAttributes(),
-				result.getMeasures(), result.getFilterAttributesPlaceholder(), result.getFilterAttributes(),
-				result.getMetadataFields());
+				result.getMeasures(), result.getSortedBy(), result.getFilterAttributesPlaceholder(),
+				result.getFilterAttributes(), result.getFields(), result.getMetadataFields());
 		return createResponse(response);
 	}
 
 	private String constructResult(List results, Class resultClass, TotalsPlaceholder totals, int count,
 	                               Set<DrillDown> drillDowns, List<String> dimensions, List<String> attributes,
-	                               List<String> measures, Object filterAttributesPlaceholder,
-	                               List<String> filterAttributes, Set<String> metadataFields) {
+	                               List<String> measures, List<String> sortedBy, Object filterAttributesPlaceholder,
+	                               List<String> filterAttributes, Set<String> fields, Set<String> metadataFields) {
 		FieldGetter[] dimensionGetters = new FieldGetter[dimensions.size()];
 		KeyType[] keyTypes = new KeyType[dimensions.size()];
 		for (int i = 0; i < dimensions.size(); ++i) {
@@ -79,35 +78,32 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 
 		JsonObject jsonMetadata = new JsonObject();
 
-		if (metadataFields.contains(DIMENSIONS_FIELD))
+		if (emptyOrContains(metadataFields, DIMENSIONS_FIELD))
 			jsonMetadata.add(DIMENSIONS_FIELD, getJsonArrayFromList(dimensions));
 
-		if (metadataFields.contains(ATTRIBUTES_FIELD))
+		if (emptyOrContains(metadataFields, ATTRIBUTES_FIELD))
 			jsonMetadata.add(ATTRIBUTES_FIELD, getJsonArrayFromList(attributes));
 
-		if (metadataFields.contains(MEASURES_FIELD))
+		if (emptyOrContains(metadataFields, MEASURES_FIELD))
 			jsonMetadata.add(MEASURES_FIELD, getJsonArrayFromList(measures));
 
-		if (metadataFields.contains(FILTER_ATTRIBUTES_FIELD))
+		if (emptyOrContains(metadataFields, FILTER_ATTRIBUTES_FIELD))
 			jsonMetadata.add(FILTER_ATTRIBUTES_FIELD, getFilterAttributesJson(filterAttributes, filterAttributesPlaceholder));
 
-		if (metadataFields.contains(DRILLDOWNS_FIELD))
+		if (emptyOrContains(metadataFields, DRILLDOWNS_FIELD))
 			jsonMetadata.add(DRILLDOWNS_FIELD, getDrillDownsJson(drillDowns));
 
-		JsonArray jsonRecords = getRecordsJson(results, dimensions, attributes, measures, dimensionGetters,
+		if (emptyOrContains(metadataFields, SORTED_BY_FIELD))
+			jsonMetadata.add(SORTED_BY_FIELD, getJsonArrayFromList(sortedBy));
+
+		JsonArray jsonRecords = getRecordsJson(results, fields, dimensions, attributes, measures, dimensionGetters,
 				attributeGetters, measureGetters, keyTypes);
 
 		JsonObject jsonResult = new JsonObject();
 		jsonResult.add(RECORDS_FIELD, jsonRecords);
-
-		if (!measures.isEmpty())
-			jsonResult.add(TOTALS_FIELD, getTotalsJson(totals, measures));
-
-		if (!metadataFields.isEmpty())
-			jsonResult.add(METADATA_FIELD, jsonMetadata);
-
+		jsonResult.add(TOTALS_FIELD, getTotalsJson(totals, measures));
+		jsonResult.add(METADATA_FIELD, jsonMetadata);
 		jsonResult.addProperty(COUNT_FIELD, count);
-
 		return jsonResult.toString();
 	}
 
@@ -121,7 +117,7 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		return jsonArray;
 	}
 
-	private JsonArray getRecordsJson(List results, List<String> dimensions, List<String> attributes,
+	private JsonArray getRecordsJson(List results, Set<String> fields, List<String> dimensions, List<String> attributes,
 	                                 List<String> measures, FieldGetter[] dimensionGetters,
 	                                 FieldGetter[] attributeGetters, FieldGetter[] measureGetters,
 	                                 KeyType[] keyTypes) {
@@ -131,18 +127,33 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 			JsonObject resultJsonObject = new JsonObject();
 
 			for (int n = 0; n < dimensions.size(); ++n) {
+				String dimension = dimensions.get(n);
+
+				if (!emptyOrContains(fields, dimension))
+					continue;
+
 				Object value = dimensionGetters[n].get(result);
 				JsonElement json = new JsonPrimitive(keyTypes[n].toString(value));
-				resultJsonObject.add(dimensions.get(n), json);
+				resultJsonObject.add(dimension, json);
 			}
 
 			for (int m = 0; m < attributes.size(); ++m) {
+				String attribute = attributes.get(m);
+
+				if (!emptyOrContains(fields, attribute))
+					continue;
+
 				Object value = attributeGetters[m].get(result);
-				resultJsonObject.add(attributes.get(m), value == null ? null : new JsonPrimitive(value.toString()));
+				resultJsonObject.add(attribute, value == null ? null : new JsonPrimitive(value.toString()));
 			}
 
 			for (int k = 0; k < measures.size(); ++k) {
-				resultJsonObject.add(measures.get(k), new JsonPrimitive((Number) measureGetters[k].get(result)));
+				String measure = measures.get(k);
+
+				if (!emptyOrContains(fields, measure))
+					continue;
+
+				resultJsonObject.add(measure, new JsonPrimitive((Number) measureGetters[k].get(result)));
 			}
 
 			jsonRecords.add(resultJsonObject);

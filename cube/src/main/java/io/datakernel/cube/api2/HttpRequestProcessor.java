@@ -48,15 +48,15 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		List<AggregationQuery.Ordering> ordering = parseOrdering(request.getParameter(SORT_PARAM));
 		Integer limit = valueOrNull(request.getParameter(LIMIT_PARAM));
 		Integer offset = valueOrNull(request.getParameter(OFFSET_PARAM));
-		boolean ignoreMeasures = getBoolean(request.getParameter(IGNORE_MEASURES_PARAM));
 		String searchString = request.getParameter(SEARCH_PARAM);
+		Set<String> fields = parseSetOfStrings(request.getParameter(FIELDS_PARAM));
 		Set<String> metadataFields = parseSetOfStrings(request.getParameter(METADATA_FIELDS_PARAM));
 
 		if (dimensions.isEmpty() && attributes.isEmpty())
 			throw new QueryException("At least one dimension or attribute must be specified");
 
 		return new ReportingQuery(dimensions, measures, attributes, predicates, ordering, limit, offset, searchString,
-				ignoreMeasures, metadataFields);
+				fields, metadataFields);
 	}
 
 	private AggregationQuery.Predicates parsePredicates(String json) {
@@ -103,15 +103,5 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		if (str == null)
 			return null;
 		return str.isEmpty() ? null : Integer.valueOf(str);
-	}
-
-	private static boolean getBoolean(String str) {
-		if (str == null || str.equals("0") || str.equals("false"))
-			return false;
-
-		if (str.equals("1") || str.equals("true"))
-			return true;
-
-		throw new QueryException("Incorrect boolean value: '" + str + "'. Allowed values: 1, 0, true, false");
 	}
 }

@@ -350,11 +350,11 @@ public class ReportingTest {
 	}
 
 	@Test
-	public void testSearchAndMeasureIgnoring() throws Exception {
+	public void testSearchAndFieldsParameter() throws Exception {
 		ReportingQuery query = new ReportingQuery()
 				.attributes("advertiserName")
 				.measures("clicks")
-				.ignoreMeasures(true)
+				.fields("advertiser", "advertiserName")
 				.search("s")
 				.metadataFields("measures");
 
@@ -382,7 +382,7 @@ public class ReportingTest {
 		assertEquals("first", records.get(0).get("advertiserName"));
 		assertEquals(2, ((Number) records.get(1).get("advertiser")).intValue());
 		assertEquals("second", records.get(1).get("advertiserName"));
-		assertTrue(queryResult[0].getMeasures().isEmpty());
+		assertEquals(singletonList("clicks"), queryResult[0].getMeasures());
 	}
 
 	@After

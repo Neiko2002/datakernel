@@ -44,6 +44,7 @@ import static com.google.common.collect.Maps.newHashMap;
 import static com.google.common.collect.Maps.newLinkedHashMap;
 import static com.google.common.collect.Sets.newHashSet;
 import static io.datakernel.codegen.Expressions.*;
+import static io.datakernel.cube.api.CommonUtils.emptyOrContains;
 import static io.datakernel.cube.api.CommonUtils.instantiate;
 import static java.util.Collections.singletonList;
 
@@ -95,12 +96,14 @@ public final class RequestExecutor {
 		Set<String> storedMeasures = newHashSet();
 		Set<String> computedMeasures = newHashSet();
 
-		boolean ignoreMeasures;
+		Set<String> fields;
 		Set<String> metadataFields;
 
 		List<String> attributes = newArrayList();
 
-		List<AggregationQuery.Ordering> orderings;
+		List<AggregationQuery.Ordering> queryOrderings;
+		List<AggregationQuery.Ordering> additionalOrderings = newArrayList();
+		List<String> appliedOrderings = newArrayList();
 		boolean additionalSortingRequired;
 
 		Class<QueryResultPlaceholder> resultClass;
@@ -115,11 +118,11 @@ public final class RequestExecutor {
 			queryPredicates = reportingQuery.getFilters();
 			predicates = transformPredicates(queryPredicates);
 			attributes = reportingQuery.getAttributes();
-			orderings = reportingQuery.getSort();
+			queryOrderings = reportingQuery.getSort();
 			limit = reportingQuery.getLimit();
 			offset = reportingQuery.getOffset();
 			searchString = reportingQuery.getSearchString();
-			ignoreMeasures = reportingQuery.isIgnoreMeasures();
+			fields = reportingQuery.getFields();
 			metadataFields = reportingQuery.getMetadataFields();
 
 			processAttributes();
@@ -238,7 +241,7 @@ public final class RequestExecutor {
 		}
 
 		void buildDrillDowns() {
-			if (metadataFields.contains("drillDowns"))
+			if (emptyOrContains(metadataFields, "drillDowns"))
 				drillDowns = cube.getDrillDowns(storedDimensions, queryPredicates, queryStoredMeasures);
 		}
 
@@ -249,7 +252,7 @@ public final class RequestExecutor {
 				if (all(dependencies, in(storedMeasures)))
 					computedMeasures.add(computedMeasure);
 
-				if (metadataFields.contains("drillDowns")) {
+				if (emptyOrContains(metadataFields, "drillDowns")) {
 					for (DrillDown drillDown : drillDowns) {
 						if (all(dependencies, in(drillDown.getMeasures())))
 							drillDown.getMeasures().add(computedMeasure);
@@ -259,28 +262,31 @@ public final class RequestExecutor {
 		}
 
 		void processOrdering() {
-			if (orderings == null)
+			if (queryOrderings == null)
 				return;
 
-			for (AggregationQuery.Ordering ordering : orderings) {
+			for (AggregationQuery.Ordering ordering : queryOrderings) {
 				String orderingField = ordering.getPropertyName();
-				additionalSortingRequired = computedMeasures.contains(orderingField)
+				additionalSortingRequired |= computedMeasures.contains(orderingField)
 						|| attributeTypes.containsKey(orderingField);
-
-				if (!storedDimensions.contains(orderingField)
-						&& !storedMeasures.contains(orderingField)
-						&& !predicates.containsKey(orderingField)
-						&& !additionalSortingRequired) {
-					throw new QueryException("Ordering is specified by not requested field: '" + orderingField + "'");
-				}
 			}
 
-			if (additionalSortingRequired)
-				return;
+			for (AggregationQuery.Ordering ordering : queryOrderings) {
+				String orderingField = ordering.getPropertyName();
 
-			for (AggregationQuery.Ordering ordering : orderings) {
-				if (!(predicates.get(ordering.getPropertyName()) instanceof AggregationQuery.PredicateEq))
+				if (predicates.get(orderingField) instanceof AggregationQuery.PredicateEq)
+					continue;
+
+				if (additionalSortingRequired) {
+					if (computedMeasures.contains(orderingField) || attributeTypes.containsKey(orderingField) ||
+							storedDimensions.contains(orderingField) || storedMeasures.contains(orderingField)) {
+						additionalOrderings.add(ordering);
+						appliedOrderings.add(orderingField);
+					}
+				} else if (storedDimensions.contains(orderingField) || storedMeasures.contains(orderingField)) {
 					query.ordering(ordering);
+					appliedOrderings.add(orderingField);
+				}
 			}
 		}
 
@@ -321,7 +327,7 @@ public final class RequestExecutor {
 			AsmBuilder<Comparator> builder = new AsmBuilder<>(classLoader, Comparator.class);
 			ExpressionComparatorNullable comparator = comparatorNullable();
 
-			for (AggregationQuery.Ordering ordering : orderings) {
+			for (AggregationQuery.Ordering ordering : additionalOrderings) {
 				if (ordering.isAsc())
 					comparator.add(
 							getter(cast(arg(0), resultClass), ordering.getPropertyName()),
@@ -341,7 +347,7 @@ public final class RequestExecutor {
 		void processResults(List<QueryResultPlaceholder> results, ResultCallback<QueryResult> callback) {
 			Class filterAttributesClass;
 			Object filterAttributesPlaceholder = null;
-			if (metadataFields.contains("filterAttributes")) {
+			if (emptyOrContains(metadataFields, "filterAttributes")) {
 				filterAttributesClass = createFilterAttributesClass();
 				filterAttributesPlaceholder = instantiate(filterAttributesClass);
 				resolver.resolve(singletonList(filterAttributesPlaceholder), filterAttributesClass, filterAttributeTypes,
@@ -354,11 +360,7 @@ public final class RequestExecutor {
 			sort(results);
 			TotalsPlaceholder totalsPlaceholder = computeTotals(results);
 
-			List<String> resultMeasures;
-			if (ignoreMeasures)
-				resultMeasures = newArrayList();
-			else
-				resultMeasures = newArrayList(filter(concat(storedMeasures, computedMeasures),
+			List<String> resultMeasures = newArrayList(filter(concat(storedMeasures, computedMeasures),
 						new Predicate<String>() {
 							@Override
 							public boolean apply(String measure) {
@@ -374,10 +376,12 @@ public final class RequestExecutor {
 		                        int count, List<String> resultMeasures, Object filterAttributesPlaceholder) {
 			List<String> dimensions = newArrayList(storedDimensions);
 			List<String> attributes = this.attributes;
-			List<String> filterAttributes = metadataFields.contains("filterAttributes") ? this.filterAttributes : null;
+			List<String> filterAttributes = emptyOrContains(metadataFields, "filterAttributes") ?
+					this.filterAttributes : null;
 
 			return new QueryResult(results, resultClass, totalsPlaceholder, count, drillDowns, dimensions, attributes,
-					resultMeasures, filterAttributesPlaceholder, filterAttributes, metadataFields);
+					resultMeasures, appliedOrderings, filterAttributesPlaceholder, filterAttributes, fields,
+					metadataFields);
 		}
 
 		List performSearch(List results) {
