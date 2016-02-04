@@ -59,8 +59,8 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 		Integer limit = valueOrNull(request.getParameter(LIMIT_PARAM));
 		Integer offset = valueOrNull(request.getParameter(OFFSET_PARAM));
 		String searchString = request.getParameter(SEARCH_PARAM);
-		Set<String> fields = parseSetOfStrings(request.getParameter(FIELDS_PARAM));
-		Set<String> metadataFields = parseSetOfStrings(request.getParameter(METADATA_FIELDS_PARAM));
+		Set<String> fields = getSetOfStrings(gson, request.getParameter(FIELDS_PARAM));
+		Set<String> metadataFields = getSetOfStrings(gson, request.getParameter(METADATA_FIELDS_PARAM));
 
 		if (dimensions.isEmpty() && attributes.isEmpty())
 			throw new QueryException("At least one dimension or attribute must be specified");
@@ -100,13 +100,6 @@ public final class HttpRequestProcessor implements RequestProcessor<HttpRequest>
 			return newArrayList();
 
 		return getListOfStrings(gson, json);
-	}
-
-	private Set<String> parseSetOfStrings(String json) {
-		if (json == null)
-			return newHashSet();
-
-		return getSetOfStrings(gson, json);
 	}
 
 	private static Integer valueOrNull(String str) {

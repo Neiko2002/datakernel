@@ -101,8 +101,8 @@ public class CommonUtils {
 		return gson.fromJson(json, type);
 	}
 
-	public static boolean emptyOrContains(Set<String> set, String s) {
-		return set.isEmpty() || set.contains(s);
+	public static boolean nullOrContains(Set<String> set, String s) {
+		return set == null || set.contains(s);
 	}
 
 	public static Object instantiate(Class<?> clazz) {

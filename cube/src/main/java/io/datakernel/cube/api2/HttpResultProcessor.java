@@ -77,22 +77,22 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 
 		JsonObject jsonMetadata = new JsonObject();
 
-		if (emptyOrContains(metadataFields, "dimensions"))
+		if (nullOrContains(metadataFields, "dimensions"))
 			jsonMetadata.add("dimensions", getJsonArrayFromList(dimensions));
 
-		if (emptyOrContains(metadataFields, "attributes"))
+		if (nullOrContains(metadataFields, "attributes"))
 			jsonMetadata.add("attributes", getJsonArrayFromList(attributes));
 
-		if (emptyOrContains(metadataFields, "measures"))
+		if (nullOrContains(metadataFields, "measures"))
 			jsonMetadata.add("measures", getJsonArrayFromList(measures));
 
-		if (emptyOrContains(metadataFields, "filterAttributes"))
+		if (nullOrContains(metadataFields, "filterAttributes"))
 			jsonMetadata.add("filterAttributes", getFilterAttributesJson(filterAttributes, filterAttributesPlaceholder));
 
-		if (emptyOrContains(metadataFields, "drillDowns"))
+		if (nullOrContains(metadataFields, "drillDowns"))
 			jsonMetadata.add("drillDowns", getDrillDownsJson(drillDowns));
 
-		if (emptyOrContains(metadataFields, "sortedBy"))
+		if (nullOrContains(metadataFields, "sortedBy"))
 			jsonMetadata.add("sortedBy", getJsonArrayFromList(sortedBy));
 
 		JsonArray jsonRecords = getRecordsJson(results, fields, dimensions, attributes, measures, dimensionGetters,
@@ -101,7 +101,10 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		JsonObject jsonResult = new JsonObject();
 		jsonResult.add("records", jsonRecords);
 		jsonResult.add("totals", getTotalsJson(totals, measures));
-		jsonResult.add("metadata", jsonMetadata);
+
+		if (metadataFields == null || !metadataFields.isEmpty())
+			jsonResult.add("metadata", jsonMetadata);
+
 		jsonResult.addProperty("count", count);
 		return jsonResult.toString();
 	}
@@ -128,7 +131,7 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 			for (int n = 0; n < dimensions.size(); ++n) {
 				String dimension = dimensions.get(n);
 
-				if (!emptyOrContains(fields, dimension))
+				if (!nullOrContains(fields, dimension))
 					continue;
 
 				Object value = dimensionGetters[n].get(result);
@@ -139,7 +142,7 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 			for (int m = 0; m < attributes.size(); ++m) {
 				String attribute = attributes.get(m);
 
-				if (!emptyOrContains(fields, attribute))
+				if (!nullOrContains(fields, attribute))
 					continue;
 
 				Object value = attributeGetters[m].get(result);
@@ -149,7 +152,7 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 			for (int k = 0; k < measures.size(); ++k) {
 				String measure = measures.get(k);
 
-				if (!emptyOrContains(fields, measure))
+				if (!nullOrContains(fields, measure))
 					continue;
 
 				resultJsonObject.add(measure, new JsonPrimitive((Number) measureGetters[k].get(result)));
