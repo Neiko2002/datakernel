@@ -165,12 +165,8 @@ public final class RequestExecutor {
 		}
 
 		void processDimensions() {
-			List<String> dimensions = newArrayList();
-
 			for (String dimension : queryDimensions) {
-				if (structure.containsKey(dimension))
-					dimensions.add(dimension);
-				else
+				if (!structure.containsKey(dimension))
 					throw new QueryException("Cube does not contain dimension with name '" + dimension + "'");
 			}
 
@@ -180,7 +176,7 @@ public final class RequestExecutor {
 				usedDimensions.add(predicate.key);
 			}
 
-			for (String dimension : dimensions) {
+			for (String dimension : queryDimensions) {
 				storedDimensions.addAll(cube.buildDrillDownChain(usedDimensions, dimension));
 			}
 		}

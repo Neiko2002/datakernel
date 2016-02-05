@@ -481,8 +481,7 @@ public final class Cube {
 			Sets.intersection(aggregationMeasures, measures).copyInto(availableMeasures);
 
 			Iterable<String> availableDimensions = filter(aggregation.getKeys(), not(in(queryDimensions)));
-			Set<List<String>> drillDownChains = structure.getChildParentRelationships().buildDrillDownChains(dimensions,
-					availableDimensions);
+			Set<List<String>> drillDownChains = structure.getChildParentRelationships().buildDrillDownChains(availableDimensions);
 
 			for (List<String> drillDownChain : drillDownChains) {
 				drillDowns.add(new DrillDown(drillDownChain, availableMeasures));
