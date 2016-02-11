@@ -21,14 +21,10 @@ import com.google.gson.JsonPrimitive;
 import io.datakernel.serializer.asm.SerializerGen;
 import io.datakernel.serializer.asm.SerializerGenEnum;
 
-public class KeyTypeEnum<T extends Enum<T>> extends KeyType {
+public final class KeyTypeEnum<T extends Enum<T>> extends KeyType {
 	private Class<T> enumClass;
 
-	public KeyTypeEnum(Class<T> enumClass) {
-		this(enumClass, null);
-	}
-
-	public KeyTypeEnum(Class<T> enumClass, Object restrictedValue) {
+	KeyTypeEnum(Class<T> enumClass, Object restrictedValue) {
 		super(enumClass, restrictedValue);
 		this.enumClass = enumClass;
 	}

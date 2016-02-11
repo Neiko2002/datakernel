@@ -19,10 +19,7 @@ package io.datakernel.cube;
 import com.google.common.collect.ImmutableMap;
 import io.datakernel.aggregation_db.*;
 import io.datakernel.aggregation_db.fieldtype.FieldType;
-import io.datakernel.aggregation_db.fieldtype.FieldTypeLong;
 import io.datakernel.aggregation_db.keytype.KeyType;
-import io.datakernel.aggregation_db.keytype.KeyTypeInt;
-import io.datakernel.aggregation_db.keytype.KeyTypeString;
 import io.datakernel.codegen.utils.DefiningClassLoader;
 import io.datakernel.cube.bean.DataItemResultString;
 import io.datakernel.cube.bean.DataItemString1;
@@ -36,6 +33,9 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static io.datakernel.aggregation_db.fieldtype.FieldTypes.longSum;
+import static io.datakernel.aggregation_db.keytype.KeyTypes.intKey;
+import static io.datakernel.aggregation_db.keytype.KeyTypes.stringKey;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 
@@ -54,13 +54,13 @@ public class StringDimensionTest {
 	public static AggregationStructure cubeStructureWithStringDimension(DefiningClassLoader classLoader) {
 		return new AggregationStructure(classLoader,
 				ImmutableMap.<String, KeyType>builder()
-						.put("key1", new KeyTypeString())
-						.put("key2", new KeyTypeInt())
+						.put("key1", stringKey())
+						.put("key2", intKey())
 						.build(),
 				ImmutableMap.<String, FieldType>builder()
-						.put("metric1", new FieldTypeLong())
-						.put("metric2", new FieldTypeLong())
-						.put("metric3", new FieldTypeLong())
+						.put("metric1", longSum())
+						.put("metric2", longSum())
+						.put("metric3", longSum())
 						.build());
 	}
 

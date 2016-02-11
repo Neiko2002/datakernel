@@ -21,12 +21,8 @@ import com.google.gson.JsonPrimitive;
 import io.datakernel.serializer.asm.SerializerGen;
 import io.datakernel.serializer.asm.SerializerGenByte;
 
-public class KeyTypeByte extends KeyType implements KeyTypeEnumerable {
-	public KeyTypeByte() {
-		this(null);
-	}
-
-	public KeyTypeByte(Object restrictedValue) {
+public final class KeyTypeByte extends KeyType implements KeyTypeEnumerable {
+	KeyTypeByte(Object restrictedValue) {
 		super(byte.class, restrictedValue);
 	}
 

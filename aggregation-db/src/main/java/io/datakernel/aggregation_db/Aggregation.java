@@ -22,6 +22,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Ordering;
 import io.datakernel.aggregation_db.AggregationMetadataStorage.LoadedChunks;
+import io.datakernel.aggregation_db.processor.ProcessorFactory;
 import io.datakernel.async.CompletionCallback;
 import io.datakernel.async.ForwardingCompletionCallback;
 import io.datakernel.async.ForwardingResultCallback;
@@ -95,15 +96,13 @@ public class Aggregation {
 	 * @param aggregationChunkStorage storage for data chunks
 	 * @param aggregationMetadata     metadata of the aggregation
 	 * @param structure               structure of an aggregation
-	 * @param processorFactory        factory used to instantiate reducer and preaggregators
 	 * @param aggregationChunkSize    maximum size of aggregation chunk
 	 * @param sorterItemsInMemory     maximum number of records that can stay in memory while sorting
 	 */
 	public Aggregation(Eventloop eventloop, ExecutorService executorService, DefiningClassLoader classLoader,
 	                   AggregationMetadataStorage metadataStorage, AggregationChunkStorage aggregationChunkStorage,
 	                   AggregationMetadata aggregationMetadata, AggregationStructure structure,
-	                   ProcessorFactory processorFactory, String partitioningKey,
-	                   int sorterItemsInMemory, int sorterBlockSize, int aggregationChunkSize) {
+	                   String partitioningKey, int sorterItemsInMemory, int sorterBlockSize, int aggregationChunkSize) {
 		checkArgument(partitioningKey == null || aggregationMetadata.getKeys().contains(partitioningKey));
 		this.eventloop = eventloop;
 		this.executorService = executorService;
@@ -116,7 +115,7 @@ public class Aggregation {
 		this.sorterBlockSize = sorterBlockSize;
 		this.aggregationChunkSize = aggregationChunkSize;
 		this.structure = structure;
-		this.processorFactory = processorFactory;
+		this.processorFactory = new ProcessorFactory(classLoader, structure);
 	}
 
 	/**
@@ -133,14 +132,12 @@ public class Aggregation {
 	 * @param aggregationChunkStorage storage for data chunks
 	 * @param aggregationMetadata     metadata of the aggregation
 	 * @param structure               structure of an aggregation
-	 * @param processorFactory        factory used to instantiate reducer and preaggregators
 	 */
 	public Aggregation(Eventloop eventloop, ExecutorService executorService, DefiningClassLoader classLoader,
 	                   AggregationMetadataStorage metadataStorage, AggregationChunkStorage aggregationChunkStorage,
-	                   AggregationMetadata aggregationMetadata, AggregationStructure structure,
-	                   ProcessorFactory processorFactory) {
+	                   AggregationMetadata aggregationMetadata, AggregationStructure structure) {
 		this(eventloop, executorService, classLoader, metadataStorage, aggregationChunkStorage, aggregationMetadata,
-				structure, processorFactory, null, DEFAULT_SORTER_ITEMS_IN_MEMORY, DEFAULT_SORTER_BLOCK_SIZE,
+				structure, null, DEFAULT_SORTER_ITEMS_IN_MEMORY, DEFAULT_SORTER_BLOCK_SIZE,
 				DEFAULT_AGGREGATION_CHUNK_SIZE);
 	}
 
@@ -256,39 +253,36 @@ public class Aggregation {
 	 * @return consumer for streaming data to aggregation
 	 */
 	public <T> StreamConsumer<T> consumer(Class<T> inputClass) {
-		return consumer(inputClass, null, null, new AggregationCommitCallback(this));
+		return consumer(inputClass, (List) null, null, new AggregationCommitCallback(this));
 	}
 
-	public <T> StreamConsumer<T> consumer(Class<T> inputClass, List<String> inputFields, List<String> outputFields) {
-		return consumer(inputClass, inputFields, outputFields, new AggregationCommitCallback(this));
+	public <T> StreamConsumer<T> consumer(Class<T> inputClass, List<String> fields,
+	                                      Map<String, String> outputToInputFields) {
+		return consumer(inputClass, fields, outputToInputFields, new AggregationCommitCallback(this));
 	}
 
 	/**
 	 * Provides a {@link StreamConsumer} for streaming data to this aggregation.
 	 *
-	 * @param inputClass     class of input records
-	 * @param inputFields    list of input field names
-	 * @param chunksCallback callback which is called when chunks are created
-	 * @param <T>            data records type
+	 * @param inputClass          class of input records
+	 * @param fields              list of output field names
+	 * @param outputToInputFields mapping from output to input fields
+	 * @param chunksCallback      callback which is called when chunks are created
+	 * @param <T>                 data records type
 	 * @return consumer for streaming data to aggregation
 	 */
 	@SuppressWarnings("unchecked")
-	public <T> StreamConsumer<T> consumer(Class<T> inputClass, List<String> inputFields, List<String> outputFields,
+	public <T> StreamConsumer<T> consumer(Class<T> inputClass, List<String> fields, Map<String, String> outputToInputFields,
 	                                      ResultCallback<List<AggregationChunk.NewChunk>> chunksCallback) {
-		if (inputFields == null)
-			inputFields = getFields();
-
-		if (outputFields == null)
-			outputFields = getFields();
+		List<String> outputFields = fields == null ? getFields() : fields;
 
 		Class<?> keyClass = structure.createKeyClass(getKeys());
 		Class<?> aggregationClass = structure.createRecordClass(getKeys(), outputFields);
 
-		Function<T, Comparable<?>> keyFunction = structure.createKeyFunction(inputClass, keyClass,
-				getKeys());
+		Function<T, Comparable<?>> keyFunction = structure.createKeyFunction(inputClass, keyClass, getKeys());
 
 		Aggregate aggregate = processorFactory.createPreaggregator(inputClass, aggregationClass, getKeys(),
-				inputFields, outputFields);
+				fields, outputToInputFields);
 
 		PartitioningStrategy partitioningStrategy = createPartitioningStrategy(aggregationClass);
 
@@ -462,7 +456,7 @@ public class Aggregation {
 			Function extractKeyFunction = structure.createKeyFunction(producerClasses.get(i), keyClass, keys);
 
 			StreamReducers.Reducer reducer = processorFactory.aggregationReducer(producerClasses.get(i), resultClass,
-					keys, newArrayList(filter(fields, in(producersFields.get(i)))), getFields());
+					keys, newArrayList(filter(fields, in(producersFields.get(i)))));
 
 			producer.streamTo(streamReducer.newInput(extractKeyFunction, reducer));
 		}

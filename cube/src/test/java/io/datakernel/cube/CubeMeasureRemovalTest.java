@@ -21,11 +21,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import io.datakernel.aggregation_db.*;
 import io.datakernel.aggregation_db.fieldtype.FieldType;
-import io.datakernel.aggregation_db.fieldtype.FieldTypeDouble;
-import io.datakernel.aggregation_db.fieldtype.FieldTypeLong;
 import io.datakernel.aggregation_db.keytype.KeyType;
-import io.datakernel.aggregation_db.keytype.KeyTypeDate;
-import io.datakernel.aggregation_db.keytype.KeyTypeInt;
 import io.datakernel.async.AsyncCallbacks;
 import io.datakernel.async.ResultCallbackFuture;
 import io.datakernel.codegen.utils.DefiningClassLoader;
@@ -57,6 +53,10 @@ import java.util.concurrent.Executors;
 
 import static com.google.common.base.Charsets.UTF_8;
 import static com.google.common.collect.Lists.newArrayList;
+import static io.datakernel.aggregation_db.fieldtype.FieldTypes.doubleSum;
+import static io.datakernel.aggregation_db.fieldtype.FieldTypes.longSum;
+import static io.datakernel.aggregation_db.keytype.KeyTypes.dateKey;
+import static io.datakernel.aggregation_db.keytype.KeyTypes.intKey;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.*;
 
@@ -72,10 +72,10 @@ public class CubeMeasureRemovalTest {
 	private static final String LOG_NAME = "testlog";
 
 	private static final Map<String, KeyType> KEYS = ImmutableMap.<String, KeyType>builder()
-			.put("date", new KeyTypeDate())
-			.put("advertiser", new KeyTypeInt())
-			.put("campaign", new KeyTypeInt())
-			.put("banner", new KeyTypeInt())
+			.put("date", dateKey())
+			.put("advertiser", intKey())
+			.put("campaign", intKey())
+			.put("banner", intKey())
 			.build();
 
 	private static final Map<String, String> CHILD_PARENT_RELATIONSHIPS = ImmutableMap.<String, String>builder()
@@ -87,21 +87,10 @@ public class CubeMeasureRemovalTest {
 		return new AggregationStructure(classLoader,
 				KEYS,
 				ImmutableMap.<String, FieldType>builder()
-						.put("impressions", new FieldTypeLong())
-						.put("clicks", new FieldTypeLong())
-						.put("conversions", new FieldTypeLong())
-						.put("revenue", new FieldTypeDouble())
-						.build());
-	}
-
-	private static AggregationStructure getNewStructure(DefiningClassLoader classLoader) {
-		return new AggregationStructure(classLoader,
-				KEYS,
-				ImmutableMap.<String, FieldType>builder()
-						.put("impressions", new FieldTypeLong())
-						.put("clicks", new FieldTypeLong())
-						.put("conversions", new FieldTypeLong())
-						.put("revenue", new FieldTypeDouble())
+						.put("impressions", longSum())
+						.put("clicks", longSum())
+						.put("conversions", longSum())
+						.put("revenue", doubleSum())
 						.build());
 	}
 
@@ -154,8 +143,6 @@ public class CubeMeasureRemovalTest {
 	                                                                    ExecutorService executor,
 	                                                                    Configuration jooqConfiguration,
 	                                                                    CubeMetadataStorageSql aggregationMetadataStorage) {
-		CubeMetadataStorageSql cubeMetadataStorage =
-				new CubeMetadataStorageSql(eventloop, executor, jooqConfiguration, "processId");
 		LogToCubeMetadataStorageSql metadataStorage = new LogToCubeMetadataStorageSql(eventloop, executor,
 				jooqConfiguration, aggregationMetadataStorage);
 		metadataStorage.truncateTables();
@@ -221,7 +208,7 @@ public class CubeMeasureRemovalTest {
 
 
 		// Initialize cube with new structure (removed measure)
-		structure = getNewStructure(classLoader);
+		structure = getStructure(classLoader);
 		aggregationChunkStorage = getAggregationChunkStorage(eventloop, executor, structure, aggregationsDir);
 		cube = getNewCube(eventloop, executor, classLoader, cubeMetadataStorageSql, aggregationChunkStorage, structure);
 		logToCubeRunner = new LogToCubeRunner<>(eventloop, cube, logManager,

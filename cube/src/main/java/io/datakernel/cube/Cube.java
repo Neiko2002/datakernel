@@ -87,13 +87,14 @@ public final class Cube implements ConcurrentJmxMBean {
 	 * Instantiates a cube with the specified structure, that runs in a given event loop,
 	 * uses the specified class loader for creating dynamic classes, saves data and metadata to given storages,
 	 * and uses the specified parameters.
-	 * @param eventloop                  event loop, in which the cube is to run
-	 * @param classLoader                class loader for defining dynamic classes
-	 * @param cubeMetadataStorage storage for aggregations metadata
-	 * @param aggregationChunkStorage    storage for data chunks
-	 * @param structure                  structure of a cube
-	 * @param sorterItemsInMemory        maximum number of records that can stay in memory while sorting
-	 * @param aggregationChunkSize       maximum size of aggregation chunk
+	 *
+	 * @param eventloop               event loop, in which the cube is to run
+	 * @param classLoader             class loader for defining dynamic classes
+	 * @param cubeMetadataStorage     storage for aggregations metadata
+	 * @param aggregationChunkStorage storage for data chunks
+	 * @param structure               structure of a cube
+	 * @param sorterItemsInMemory     maximum number of records that can stay in memory while sorting
+	 * @param aggregationChunkSize    maximum size of aggregation chunk
 	 */
 	public Cube(Eventloop eventloop, ExecutorService executorService, DefiningClassLoader classLoader,
 	            CubeMetadataStorage cubeMetadataStorage, AggregationChunkStorage aggregationChunkStorage,
@@ -149,8 +150,8 @@ public final class Cube implements ConcurrentJmxMBean {
 	public void addAggregation(String aggregationId, AggregationMetadata aggregationMetadata, String partitioningKey) {
 		AggregationMetadataStorage aggregationMetadataStorage = cubeMetadataStorage.aggregationMetadataStorage(aggregationId, aggregationMetadata, structure);
 		Aggregation aggregation = new Aggregation(eventloop, executorService, classLoader, aggregationMetadataStorage,
-				aggregationChunkStorage, aggregationMetadata, structure, new SummationProcessorFactory(classLoader),
-				partitioningKey, sorterItemsInMemory, sorterBlockSize, aggregationChunkSize);
+				aggregationChunkStorage, aggregationMetadata, structure, partitioningKey, sorterItemsInMemory,
+				sorterBlockSize, aggregationChunkSize);
 		checkArgument(!aggregations.containsKey(aggregationId), "Aggregation '%s' is already defined", aggregationId);
 		aggregations.put(aggregationId, aggregation);
 	}
@@ -173,7 +174,7 @@ public final class Cube implements ConcurrentJmxMBean {
 
 	public <T> StreamConsumer<T> consumer(Class<T> inputClass, List<String> dimensions, List<String> measures,
 	                                      ResultCallback<Multimap<AggregationMetadata, AggregationChunk.NewChunk>> callback) {
-		return consumer(inputClass, dimensions, measures, null, callback);
+		return consumer(inputClass, dimensions, measures, null, null, callback);
 	}
 
 	private Collection<Aggregation> findAggregationsForWriting(final AggregationQuery.QueryPredicates predicates) {
@@ -209,7 +210,7 @@ public final class Cube implements ConcurrentJmxMBean {
 	 * @return consumer for streaming data to cube
 	 */
 	public <T> StreamConsumer<T> consumer(Class<T> inputClass, List<String> dimensions, List<String> measures,
-	                                      AggregationQuery.QueryPredicates predicates,
+	                                      Map<String, String> outputToInputFields, AggregationQuery.QueryPredicates predicates,
 	                                      final ResultCallback<Multimap<AggregationMetadata, AggregationChunk.NewChunk>> callback) {
 		logger.trace("Started building StreamConsumer for populating cube {}.", this);
 
@@ -228,7 +229,7 @@ public final class Cube implements ConcurrentJmxMBean {
 			if (aggregationMeasures.isEmpty())
 				continue;
 
-			StreamConsumer<T> groupReducer = aggregation.consumer(inputClass, aggregationMeasures, aggregationMeasures,
+			StreamConsumer<T> groupReducer = aggregation.consumer(inputClass, aggregationMeasures, outputToInputFields,
 					new ForwardingResultCallback<List<AggregationChunk.NewChunk>>(callback) {
 						@Override
 						public void onResult(List<AggregationChunk.NewChunk> chunks) {

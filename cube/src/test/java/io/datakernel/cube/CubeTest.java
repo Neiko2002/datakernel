@@ -22,9 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import io.datakernel.aggregation_db.*;
 import io.datakernel.aggregation_db.fieldtype.FieldType;
-import io.datakernel.aggregation_db.fieldtype.FieldTypeLong;
 import io.datakernel.aggregation_db.keytype.KeyType;
-import io.datakernel.aggregation_db.keytype.KeyTypeInt;
 import io.datakernel.async.CompletionCallback;
 import io.datakernel.async.ResultCallback;
 import io.datakernel.async.ResultCallbackFuture;
@@ -53,6 +51,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static io.datakernel.aggregation_db.AggregationChunk.createChunk;
+import static io.datakernel.aggregation_db.fieldtype.FieldTypes.longSum;
+import static io.datakernel.aggregation_db.keytype.KeyTypes.intKey;
 import static io.datakernel.async.AsyncCallbacks.waitAll;
 import static java.util.Arrays.asList;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
@@ -96,29 +96,29 @@ public class CubeTest {
 	public static AggregationStructure cubeStructure(DefiningClassLoader classLoader) {
 		return new AggregationStructure(classLoader,
 				ImmutableMap.<String, KeyType>builder()
-						.put("key1", new KeyTypeInt())
-						.put("key2", new KeyTypeInt())
+						.put("key1", intKey())
+						.put("key2", intKey())
 						.build(),
 				ImmutableMap.<String, FieldType>builder()
-						.put("metric1", new FieldTypeLong())
-						.put("metric2", new FieldTypeLong())
-						.put("metric3", new FieldTypeLong())
+						.put("metric1", longSum())
+						.put("metric2", longSum())
+						.put("metric3", longSum())
 						.build());
 	}
 
 	public static AggregationStructure sophisticatedCubeStructure(DefiningClassLoader classLoader) {
 		return new AggregationStructure(classLoader,
 				ImmutableMap.<String, KeyType>builder()
-						.put("key1", new KeyTypeInt())
-						.put("key2", new KeyTypeInt())
-						.put("key3", new KeyTypeInt())
-						.put("key4", new KeyTypeInt())
-						.put("key5", new KeyTypeInt())
+						.put("key1", intKey())
+						.put("key2", intKey())
+						.put("key3", intKey())
+						.put("key4", intKey())
+						.put("key5", intKey())
 						.build(),
 				ImmutableMap.<String, FieldType>builder()
-						.put("metric1", new FieldTypeLong())
-						.put("metric2", new FieldTypeLong())
-						.put("metric3", new FieldTypeLong())
+						.put("metric1", longSum())
+						.put("metric2", longSum())
+						.put("metric3", longSum())
 						.build());
 	}
 

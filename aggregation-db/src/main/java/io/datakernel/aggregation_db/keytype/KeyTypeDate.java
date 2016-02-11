@@ -23,14 +23,14 @@ import io.datakernel.serializer.asm.SerializerGenInt;
 import org.joda.time.Days;
 import org.joda.time.LocalDate;
 
-public class KeyTypeDate extends KeyType implements KeyTypeEnumerable {
+public final class KeyTypeDate extends KeyType implements KeyTypeEnumerable {
 	private final LocalDate startDate;
 
-	public KeyTypeDate() {
+	KeyTypeDate() {
 		this(LocalDate.parse("1970-01-01"));
 	}
 
-	public KeyTypeDate(LocalDate startDate) {
+	KeyTypeDate(LocalDate startDate) {
 		super(int.class);
 		this.startDate = startDate;
 	}
