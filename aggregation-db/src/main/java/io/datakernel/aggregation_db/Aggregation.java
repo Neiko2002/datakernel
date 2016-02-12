@@ -174,7 +174,7 @@ public class Aggregation {
 		return aggregationMetadata.hasPredicates();
 	}
 
-	public boolean matchQueryPredicates(AggregationQuery.QueryPredicates predicates) {
+	public boolean matchQueryPredicates(AggregationQuery.Predicates predicates) {
 		return aggregationMetadata.matchQueryPredicates(predicates);
 	}
 
@@ -203,7 +203,7 @@ public class Aggregation {
 		return aggregationMetadata.getCost(query);
 	}
 
-	public AggregationQuery.QueryPredicates getAggregationPredicates() {
+	public AggregationQuery.Predicates getAggregationPredicates() {
 		return aggregationMetadata.getAggregationPredicates();
 	}
 
@@ -312,12 +312,12 @@ public class Aggregation {
 
 		StreamProducer queryResultProducer = streamProducer;
 
-		List<AggregationQuery.QueryPredicateNotEquals> notEqualsPredicates = getNotEqualsPredicates(query.getPredicates());
+		List<AggregationQuery.PredicateNotEquals> notEqualsPredicates = getNotEqualsPredicates(query.getPredicates());
 
 		for (String key : resultKeys) {
 			Object restrictedValue = structure.getKeyType(key).getRestrictedValue();
 			if (restrictedValue != null)
-				notEqualsPredicates.add(new AggregationQuery.QueryPredicateNotEquals(key, restrictedValue));
+				notEqualsPredicates.add(new AggregationQuery.PredicateNotEquals(key, restrictedValue));
 		}
 
 		if (!notEqualsPredicates.isEmpty()) {
@@ -345,12 +345,12 @@ public class Aggregation {
 		return query(query, query.getResultFields(), outputClass);
 	}
 
-	private List<AggregationQuery.QueryPredicateNotEquals> getNotEqualsPredicates(AggregationQuery.QueryPredicates queryPredicates) {
-		List<AggregationQuery.QueryPredicateNotEquals> notEqualsPredicates = newArrayList();
+	private List<AggregationQuery.PredicateNotEquals> getNotEqualsPredicates(AggregationQuery.Predicates queryPredicates) {
+		List<AggregationQuery.PredicateNotEquals> notEqualsPredicates = newArrayList();
 
-		for (AggregationQuery.QueryPredicate queryPredicate : queryPredicates.asCollection()) {
-			if (queryPredicate instanceof AggregationQuery.QueryPredicateNotEquals) {
-				notEqualsPredicates.add((AggregationQuery.QueryPredicateNotEquals) queryPredicate);
+		for (AggregationQuery.Predicate queryPredicate : queryPredicates.asCollection()) {
+			if (queryPredicate instanceof AggregationQuery.PredicateNotEquals) {
+				notEqualsPredicates.add((AggregationQuery.PredicateNotEquals) queryPredicate);
 			}
 		}
 
@@ -396,7 +396,7 @@ public class Aggregation {
 	}
 
 	private <T> StreamProducer<T> consolidatedProducer(List<String> keys, List<String> fields, Class<T> resultClass,
-	                                                   AggregationQuery.QueryPredicates predicates,
+	                                                   AggregationQuery.Predicates predicates,
 	                                                   List<AggregationChunk> individualChunks) {
 		individualChunks = newArrayList(individualChunks);
 		Collections.sort(individualChunks, new Comparator<AggregationChunk>() {
@@ -463,7 +463,7 @@ public class Aggregation {
 		return streamReducer.getOutput();
 	}
 
-	private StreamProducer sequentialProducer(AggregationQuery.QueryPredicates predicates,
+	private StreamProducer sequentialProducer(AggregationQuery.Predicates predicates,
 	                                          List<AggregationChunk> individualChunks, Class<?> sequenceClass) {
 		checkArgument(!individualChunks.isEmpty());
 		List<StreamProducer<Object>> producers = new ArrayList<>();
@@ -473,7 +473,7 @@ public class Aggregation {
 		return StreamProducers.concat(eventloop, producers);
 	}
 
-	private StreamProducer chunkReaderWithFilter(AggregationQuery.QueryPredicates predicates,
+	private StreamProducer chunkReaderWithFilter(AggregationQuery.Predicates predicates,
 	                                             AggregationChunk chunk, Class<?> chunkRecordClass) {
 		StreamProducer chunkReader = aggregationChunkStorage.chunkReader(getKeys(),
 				chunk.getFields(), chunkRecordClass, chunk.getChunkId());
@@ -491,10 +491,10 @@ public class Aggregation {
 		return streamFilter.getOutput();
 	}
 
-	private Predicate createNotEqualsPredicate(Class<?> recordClass, List<AggregationQuery.QueryPredicateNotEquals> notEqualsPredicates) {
+	private Predicate createNotEqualsPredicate(Class<?> recordClass, List<AggregationQuery.PredicateNotEquals> notEqualsPredicates) {
 		AsmBuilder<Predicate> builder = new AsmBuilder<>(classLoader, Predicate.class).setBytecodeSaveDir(Paths.get("./codegenOutput"));
 		PredicateDefAnd predicateDefAnd = and();
-		for (AggregationQuery.QueryPredicateNotEquals notEqualsPredicate : notEqualsPredicates) {
+		for (AggregationQuery.PredicateNotEquals notEqualsPredicate : notEqualsPredicates) {
 			predicateDefAnd.add(cmpNe(
 					getter(cast(arg(0), recordClass), notEqualsPredicate.key),
 					value(notEqualsPredicate.value)
@@ -505,7 +505,7 @@ public class Aggregation {
 	}
 
 	private Predicate createPredicate(AggregationChunk chunk,
-	                                  Class<?> chunkRecordClass, AggregationQuery.QueryPredicates predicates) {
+	                                  Class<?> chunkRecordClass, AggregationQuery.Predicates predicates) {
 		List<String> keysAlreadyInChunk = new ArrayList<>();
 		for (int i = 0; i < getKeys().size(); i++) {
 			String key = getKeys().get(i);
@@ -520,18 +520,18 @@ public class Aggregation {
 		AsmBuilder builder = new AsmBuilder(classLoader, Predicate.class);
 		PredicateDefAnd predicateDefAnd = and();
 
-		for (AggregationQuery.QueryPredicate predicate : predicates.asCollection()) {
-			if (predicate instanceof AggregationQuery.QueryPredicateEq) {
+		for (AggregationQuery.Predicate predicate : predicates.asCollection()) {
+			if (predicate instanceof AggregationQuery.PredicateEq) {
 //				if (keysAlreadyInChunk.contains(predicate.key))
 //					continue;
-				Object value = ((AggregationQuery.QueryPredicateEq) predicate).value;
+				Object value = ((AggregationQuery.PredicateEq) predicate).value;
 
 				predicateDefAnd.add(cmpEq(
 						getter(cast(arg(0), chunkRecordClass), predicate.key),
 						value(value)));
-			} else if (predicate instanceof AggregationQuery.QueryPredicateBetween) {
-				Object from = ((AggregationQuery.QueryPredicateBetween) predicate).from;
-				Object to = ((AggregationQuery.QueryPredicateBetween) predicate).to;
+			} else if (predicate instanceof AggregationQuery.PredicateBetween) {
+				Object from = ((AggregationQuery.PredicateBetween) predicate).from;
+				Object to = ((AggregationQuery.PredicateBetween) predicate).to;
 
 				predicateDefAnd.add(cmpGe(
 						getter(cast(arg(0), chunkRecordClass), predicate.key),

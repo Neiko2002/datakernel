@@ -56,6 +56,9 @@ import static io.datakernel.aggregation_db.fieldtype.FieldTypes.doubleSum;
 import static io.datakernel.aggregation_db.fieldtype.FieldTypes.longSum;
 import static io.datakernel.aggregation_db.keytype.KeyTypes.dateKey;
 import static io.datakernel.aggregation_db.keytype.KeyTypes.intKey;
+import static io.datakernel.cube.CubeTestUtils.getAggregationChunkStorage;
+import static io.datakernel.cube.CubeTestUtils.getLogManager;
+import static io.datakernel.cube.CubeTestUtils.getLogToCubeMetadataStorage;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 
@@ -115,34 +118,6 @@ public class CubePartitioningTest {
 		return jooqConfiguration;
 	}
 
-	private static LogToCubeMetadataStorage getLogToCubeMetadataStorage(Eventloop eventloop,
-	                                                                    ExecutorService executor,
-	                                                                    Configuration jooqConfiguration,
-	                                                                    CubeMetadataStorageSql aggregationMetadataStorage) {
-		CubeMetadataStorageSql cubeMetadataStorage =
-				new CubeMetadataStorageSql(eventloop, executor, jooqConfiguration, "processId");
-		LogToCubeMetadataStorageSql metadataStorage = new LogToCubeMetadataStorageSql(eventloop, executor,
-				jooqConfiguration, aggregationMetadataStorage);
-		metadataStorage.truncateTables();
-		return metadataStorage;
-	}
-
-	private static AggregationChunkStorage getAggregationChunkStorage(Eventloop eventloop, ExecutorService executor,
-	                                                                  AggregationStructure structure,
-	                                                                  Path aggregationsDir) {
-		return new LocalFsChunkStorage(eventloop, executor, structure, aggregationsDir);
-	}
-
-	private static LogManager<LogItem> getLogManager(Eventloop eventloop, ExecutorService executor,
-	                                                 DefiningClassLoader classLoader, Path logsDir) {
-		LocalFsLogFileSystem fileSystem = new LocalFsLogFileSystem(eventloop, executor, logsDir);
-		BufferSerializer<LogItem> bufferSerializer = SerializerBuilder
-				.newDefaultInstance(classLoader)
-				.create(LogItem.class);
-
-		return new LogManagerImpl<>(eventloop, fileSystem, bufferSerializer);
-	}
-
 	@Ignore
 	@SuppressWarnings("ConstantConditions")
 	@Test
@@ -163,7 +138,7 @@ public class CubePartitioningTest {
 		LogToCubeMetadataStorage logToCubeMetadataStorage =
 				getLogToCubeMetadataStorage(eventloop, executor, jooqConfiguration, cubeMetadataStorageSql);
 		Cube cube = getCube(eventloop, executor, classLoader, cubeMetadataStorageSql, aggregationChunkStorage, structure);
-		LogManager<LogItem> logManager = getLogManager(eventloop, executor, classLoader, logsDir);
+		LogManager<LogItem> logManager = getLogManager(LogItem.class, eventloop, executor, classLoader, logsDir);
 		LogToCubeRunner<LogItem> logToCubeRunner = new LogToCubeRunner<>(eventloop, cube, logManager,
 				LogItemSplitter.factory(), LOG_NAME, LOG_PARTITIONS, logToCubeMetadataStorage);
 

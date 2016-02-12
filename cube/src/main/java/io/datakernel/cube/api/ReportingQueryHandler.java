@@ -48,6 +48,7 @@ import static com.google.common.collect.Sets.newHashSet;
 import static io.datakernel.codegen.Expressions.*;
 import static io.datakernel.cube.api.CommonUtils.*;
 
+@Deprecated
 public final class ReportingQueryHandler implements AsyncHttpServlet {
 	private static final Logger logger = LoggerFactory.getLogger(ReportingQueryHandler.class);
 
@@ -95,7 +96,7 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 
 		private AggregationQuery query;
 
-		private Map<String, AggregationQuery.QueryPredicate> predicates;
+		private Map<String, AggregationQuery.Predicate> predicates;
 
 		private List<String> queryMeasures;
 		private Set<String> storedMeasures = newHashSet();
@@ -165,7 +166,7 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 
 		private void processPredicates(String predicatesJson) {
 			query = new AggregationQuery();
-			AggregationQuery.QueryPredicates queryPredicates = addPredicatesToQuery(predicatesJson);
+			AggregationQuery.Predicates queryPredicates = addPredicatesToQuery(predicatesJson);
 			predicates = queryPredicates == null ? null : queryPredicates.asMap();
 		}
 
@@ -186,11 +187,11 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 
 				boolean usingStoredDimension = false;
 				for (String keyComponent : key) {
-					if (predicates != null && predicates.get(keyComponent) instanceof AggregationQuery.QueryPredicateEq) {
+					if (predicates != null && predicates.get(keyComponent) instanceof AggregationQuery.PredicateEq) {
 						if (usingStoredDimension)
 							throw new QueryException("Incorrect filter: using 'equals' predicate when prefix of this compound key is not fully defined");
 						else
-							keyConstants.put(keyComponent, ((AggregationQuery.QueryPredicateEq) predicates.get(keyComponent)).value);
+							keyConstants.put(keyComponent, ((AggregationQuery.PredicateEq) predicates.get(keyComponent)).value);
 					} else {
 						storedDimensions.add(keyComponent);
 						usingStoredDimension = true;
@@ -202,11 +203,11 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 			}
 		}
 
-		private AggregationQuery.QueryPredicates addPredicatesToQuery(String predicatesJson) {
-			AggregationQuery.QueryPredicates queryPredicates = null;
+		private AggregationQuery.Predicates addPredicatesToQuery(String predicatesJson) {
+			AggregationQuery.Predicates queryPredicates = null;
 
 			if (predicatesJson != null) {
-				queryPredicates = gson.fromJson(predicatesJson, AggregationQuery.QueryPredicates.class);
+				queryPredicates = gson.fromJson(predicatesJson, AggregationQuery.Predicates.class);
 			}
 
 			if (queryPredicates != null) {
@@ -416,7 +417,7 @@ public final class ReportingQueryHandler implements AsyncHttpServlet {
 					if (keyTypes[j] == null)
 						json = value == null ? null : new JsonPrimitive(value.toString());
 					else
-						json = keyTypes[j].toJson(value);
+						json = new JsonPrimitive(keyTypes[j].toString(value));
 					resultJsonObject.add(resultKeys.get(j), json);
 				}
 

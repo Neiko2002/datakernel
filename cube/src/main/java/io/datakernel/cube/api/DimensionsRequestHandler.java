@@ -19,10 +19,7 @@ package io.datakernel.cube.api;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
-import com.google.gson.Gson;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParseException;
+import com.google.gson.*;
 import io.datakernel.aggregation_db.AggregationQuery;
 import io.datakernel.aggregation_db.AggregationStructure;
 import io.datakernel.aggregation_db.api.QueryException;
@@ -43,8 +40,10 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Sets.newHashSet;
 import static io.datakernel.cube.api.CommonUtils.*;
 
+@Deprecated
 public final class DimensionsRequestHandler implements AsyncHttpServlet {
 	private static final Logger logger = LoggerFactory.getLogger(DimensionsRequestHandler.class);
 
@@ -83,35 +82,35 @@ public final class DimensionsRequestHandler implements AsyncHttpServlet {
 		String measuresJson = request.getParameter("measures");
 		final String dimension = request.getParameter("dimension");
 
-		AggregationQuery.QueryPredicates queryPredicates = gson.fromJson(predicatesJson, AggregationQuery.QueryPredicates.class);
+		AggregationQuery.Predicates queryPredicates = gson.fromJson(predicatesJson, AggregationQuery.Predicates.class);
 		List<String> measures = getListOfStrings(gson, measuresJson);
 
 		final Set<String> childrenDimensions = cube.findChildrenDimensions(dimension);
 
 		List<String> chain;
-		List<AggregationQuery.QueryPredicate> filteredPredicates;
+		List<AggregationQuery.Predicate> filteredPredicates;
 
 		if (queryPredicates == null) {
 			chain = cube.buildDrillDownChain(dimension);
 			filteredPredicates = newArrayList();
 		} else {
 			chain = cube.buildDrillDownChain(queryPredicates.keys(), dimension);
-			filteredPredicates = newArrayList(Iterables.filter(queryPredicates.asCollection(), new Predicate<AggregationQuery.QueryPredicate>() {
+			filteredPredicates = newArrayList(Iterables.filter(queryPredicates.asCollection(), new Predicate<AggregationQuery.Predicate>() {
 				@Override
-				public boolean apply(AggregationQuery.QueryPredicate predicate) {
+				public boolean apply(AggregationQuery.Predicate predicate) {
 					return !childrenDimensions.contains(predicate.key) && !predicate.key.equals(dimension);
 				}
 			}));
 		}
 
-		List<String> predicateKeys = newArrayList(Iterables.transform(filteredPredicates, new Function<AggregationQuery.QueryPredicate, String>() {
+		List<String> predicateKeys = newArrayList(Iterables.transform(filteredPredicates, new Function<AggregationQuery.Predicate, String>() {
 			@Override
-			public String apply(AggregationQuery.QueryPredicate queryPredicate) {
+			public String apply(AggregationQuery.Predicate queryPredicate) {
 				return queryPredicate.key;
 			}
 		}));
 
-		Set<String> availableMeasures = cube.getAvailableMeasures(newArrayList(Iterables.concat(chain, predicateKeys)), measures);
+		Set<String> availableMeasures = cube.getAvailableMeasures(newHashSet(Iterables.concat(chain, predicateKeys)), measures);
 
 		final AggregationQuery query = new AggregationQuery()
 				.keys(chain)
@@ -164,7 +163,7 @@ public final class DimensionsRequestHandler implements AsyncHttpServlet {
 			JsonObject resultJsonObject = new JsonObject();
 
 			for (int i = 0; i < resultKeys.size(); i++) {
-				resultJsonObject.add(resultKeys.get(i), keyTypes[i].toJson(keyGetters[i].get(result)));
+				resultJsonObject.add(resultKeys.get(i), new JsonPrimitive(keyTypes[i].toString(keyGetters[i].get(result))));
 			}
 
 			jsonResults.add(resultJsonObject);

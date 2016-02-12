@@ -14,47 +14,62 @@
  * limitations under the License.
  */
 
-package io.datakernel.cube.api;
+package io.datakernel.cube.api2;
 
 import com.google.common.base.MoreObjects;
 import io.datakernel.cube.DrillDown;
+import io.datakernel.cube.api.TotalsPlaceholder;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
-public final class ReportingQueryResult {
-	private final List<Map<String, Object>> records;
-	private final Map<String, Object> totals;
+public final class QueryResult {
+	private final List records;
+	private final Class recordClass;
+
+	private final TotalsPlaceholder totals;
 	private final int count;
 
 	private final Set<DrillDown> drillDowns;
 	private final List<String> dimensions;
 	private final List<String> attributes;
 	private final List<String> measures;
-	private final Map<String, Object> filterAttributes;
 	private final List<String> sortedBy;
 
-	public ReportingQueryResult(List<Map<String, Object>> records, Map<String, Object> totals, int count,
-	                            Set<DrillDown> drillDowns, List<String> dimensions, List<String> attributes,
-	                            List<String> measures, Map<String, Object> filterAttributes,
-	                            List<String> sortedBy) {
+	private final Object filterAttributesPlaceholder;
+	private final List<String> filterAttributes;
+
+	private final Set<String> fields;
+	private final Set<String> metadataFields;
+
+	public QueryResult(List records, Class recordClass, TotalsPlaceholder totals,
+	                   int count, Set<DrillDown> drillDowns, List<String> dimensions, List<String> attributes,
+	                   List<String> measures, List<String> sortedBy, Object filterAttributesPlaceholder,
+	                   List<String> filterAttributes, Set<String> fields, Set<String> metadataFields) {
 		this.records = records;
+		this.recordClass = recordClass;
 		this.totals = totals;
 		this.count = count;
 		this.drillDowns = drillDowns;
 		this.dimensions = dimensions;
 		this.attributes = attributes;
 		this.measures = measures;
-		this.filterAttributes = filterAttributes;
 		this.sortedBy = sortedBy;
+		this.filterAttributesPlaceholder = filterAttributesPlaceholder;
+		this.filterAttributes = filterAttributes;
+		this.fields = fields;
+		this.metadataFields = metadataFields;
 	}
 
-	public List<Map<String, Object>> getRecords() {
+	public List getRecords() {
 		return records;
 	}
 
-	public Map<String, Object> getTotals() {
+	public Class getRecordClass() {
+		return recordClass;
+	}
+
+	public TotalsPlaceholder getTotals() {
 		return totals;
 	}
 
@@ -78,26 +93,42 @@ public final class ReportingQueryResult {
 		return measures;
 	}
 
-	public Map<String, Object> getFilterAttributes() {
+	public List<String> getSortedBy() {
+		return sortedBy;
+	}
+
+	public Object getFilterAttributesPlaceholder() {
+		return filterAttributesPlaceholder;
+	}
+
+	public List<String> getFilterAttributes() {
 		return filterAttributes;
 	}
 
-	public List<String> getSortedBy() {
-		return sortedBy;
+	public Set<String> getFields() {
+		return fields;
+	}
+
+	public Set<String> getMetadataFields() {
+		return metadataFields;
 	}
 
 	@Override
 	public String toString() {
 		return MoreObjects.toStringHelper(this)
 				.add("records", records)
+				.add("recordClass", recordClass)
 				.add("totals", totals)
 				.add("count", count)
 				.add("drillDowns", drillDowns)
 				.add("dimensions", dimensions)
 				.add("attributes", attributes)
 				.add("measures", measures)
-				.add("filterAttributes", filterAttributes)
 				.add("sortedBy", sortedBy)
+				.add("filterAttributesPlaceholder", filterAttributesPlaceholder)
+				.add("filterAttributes", filterAttributes)
+				.add("fields", fields)
+				.add("metadataFields", metadataFields)
 				.toString();
 	}
 }

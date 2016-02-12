@@ -115,9 +115,9 @@ public class AggregationStructure {
 		logger.trace("Creating field comparator for query {}", query.toString());
 		AsmBuilder<Comparator> builder = new AsmBuilder<>(classLoader, Comparator.class);
 		ExpressionComparator comparator = comparator();
-		List<AggregationQuery.QueryOrdering> orderings = query.getOrderings();
+		List<AggregationQuery.Ordering> orderings = query.getOrderings();
 
-		for (AggregationQuery.QueryOrdering ordering : orderings) {
+		for (AggregationQuery.Ordering ordering : orderings) {
 			boolean isAsc = ordering.isAsc();
 			String field = ordering.getPropertyName();
 			if (isAsc)

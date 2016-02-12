@@ -37,7 +37,8 @@ public class AggregationKeyRelationships {
 		}
 	}
 
-	public Set<List<String>> buildDrillDownChains(Set<String> usedDimensions, Set<String> availableDimensions) {
+	@Deprecated
+	public Set<List<String>> buildDrillDownChains(Set<String> usedDimensions, Iterable<String> availableDimensions) {
 		Set<List<String>> drillDowns = newHashSet();
 		for (String dimension : availableDimensions) {
 			List<String> drillDown = buildDrillDownChain(usedDimensions, dimension);
@@ -46,12 +47,34 @@ public class AggregationKeyRelationships {
 		return drillDowns;
 	}
 
+	@Deprecated
 	public List<String> buildDrillDownChain(Set<String> usedDimensions, String dimension) {
 		LinkedList<String> drillDown = new LinkedList<>();
 		drillDown.add(dimension);
 		String child = dimension;
 		String parent;
 		while ((parent = childParentRelationships.get(child)) != null && !usedDimensions.contains(parent)) {
+			drillDown.addFirst(parent);
+			child = parent;
+		}
+		return drillDown;
+	}
+
+	public Set<List<String>> buildDrillDownChains(Iterable<String> availableDimensions) {
+		Set<List<String>> drillDowns = newHashSet();
+		for (String dimension : availableDimensions) {
+			List<String> drillDown = buildDrillDownChain(dimension);
+			drillDowns.add(drillDown);
+		}
+		return drillDowns;
+	}
+
+	public List<String> buildDrillDownChain(String dimension) {
+		LinkedList<String> drillDown = new LinkedList<>();
+		drillDown.add(dimension);
+		String child = dimension;
+		String parent;
+		while ((parent = childParentRelationships.get(child)) != null) {
 			drillDown.addFirst(parent);
 			child = parent;
 		}

@@ -177,7 +177,7 @@ public final class Cube implements ConcurrentJmxMBean {
 		return consumer(inputClass, dimensions, measures, null, null, callback);
 	}
 
-	private Collection<Aggregation> findAggregationsForWriting(final AggregationQuery.QueryPredicates predicates) {
+	private Collection<Aggregation> findAggregationsForWriting(final AggregationQuery.Predicates predicates) {
 		Collection<Aggregation> allAggregations = aggregations.values();
 
 		if (predicates == null)
@@ -210,7 +210,7 @@ public final class Cube implements ConcurrentJmxMBean {
 	 * @return consumer for streaming data to cube
 	 */
 	public <T> StreamConsumer<T> consumer(Class<T> inputClass, List<String> dimensions, List<String> measures,
-	                                      Map<String, String> outputToInputFields, AggregationQuery.QueryPredicates predicates,
+	                                      Map<String, String> outputToInputFields, AggregationQuery.Predicates predicates,
 	                                      final ResultCallback<Multimap<AggregationMetadata, AggregationChunk.NewChunk>> callback) {
 		logger.trace("Started building StreamConsumer for populating cube {}.", this);
 
@@ -301,13 +301,13 @@ public final class Cube implements ConcurrentJmxMBean {
 	}
 
 	public AggregationQuery getQueryWithoutAppliedPredicateKeys(AggregationQuery query, List<String> appliedPredicateKeys) {
-		Map<String, AggregationQuery.QueryPredicate> filteredQueryPredicates = new LinkedHashMap<>();
-		for (Map.Entry<String, AggregationQuery.QueryPredicate> queryPredicateEntry : query.getPredicates().asMap().entrySet()) {
+		Map<String, AggregationQuery.Predicate> filteredQueryPredicates = new LinkedHashMap<>();
+		for (Map.Entry<String, AggregationQuery.Predicate> queryPredicateEntry : query.getPredicates().asMap().entrySet()) {
 			if (!appliedPredicateKeys.contains(queryPredicateEntry.getKey()))
 				filteredQueryPredicates.put(queryPredicateEntry.getKey(), queryPredicateEntry.getValue());
 		}
 
-		return new AggregationQuery(query.getResultKeys(), query.getResultFields(), AggregationQuery.QueryPredicates.fromMap(filteredQueryPredicates), query.getOrderings());
+		return new AggregationQuery(query.getResultKeys(), query.getResultFields(), AggregationQuery.Predicates.fromMap(filteredQueryPredicates), query.getOrderings());
 	}
 
 	/**
@@ -418,33 +418,22 @@ public final class Cube implements ConcurrentJmxMBean {
 		});
 	}
 
-	public AvailableDrillDowns getAvailableDrillDowns(Set<String> dimensions, AggregationQuery.QueryPredicates predicates,
-	                                                  Set<String> measures) {
+	@Deprecated
+	public DrillDowns getAvailableDrillDowns(Set<String> dimensions, AggregationQuery.Predicates predicates,
+	                                         Set<String> measures) {
 		Set<String> availableMeasures = newHashSet();
 		Set<String> availableDimensions = newHashSet();
-		Set<String> eqPredicateDimensions = newHashSet();
 
 		AggregationQuery query = new AggregationQuery(newArrayList(dimensions), newArrayList(measures), predicates);
 
-		for (AggregationQuery.QueryPredicate predicate : predicates.asCollection()) {
-			if (predicate instanceof AggregationQuery.QueryPredicateEq) {
-				eqPredicateDimensions.add(predicate.key);
-			}
-		}
-
-		List<String> queryDimensions = newArrayList(concat(dimensions, eqPredicateDimensions));
+		List<String> queryDimensions = getQueryDimensions(dimensions, predicates.asCollection());
 
 		for (Aggregation aggregation : aggregations.values()) {
 			Set<String> aggregationMeasures = newHashSet();
 			aggregationMeasures.addAll(aggregation.getFields());
 
-			if (!all(queryDimensions, in(aggregation.getKeys())))
-				continue;
-
-			if (!any(measures, in(aggregationMeasures)))
-				continue;
-
-			if (aggregation.hasPredicates() && !aggregation.applyQueryPredicates(query, structure).isMatches())
+			if (!all(queryDimensions, in(aggregation.getKeys())) || !any(measures, in(aggregationMeasures)) ||
+					aggregation.hasPredicates() && !aggregation.applyQueryPredicates(query, structure).isMatches())
 				continue;
 
 			Sets.intersection(aggregationMeasures, measures).copyInto(availableMeasures);
@@ -454,7 +443,50 @@ public final class Cube implements ConcurrentJmxMBean {
 
 		Set<List<String>> drillDownChains = childParentRelationships.buildDrillDownChains(dimensions, availableDimensions);
 
-		return new AvailableDrillDowns(drillDownChains, availableMeasures);
+		return new DrillDowns(drillDownChains, availableMeasures);
+	}
+
+	public Set<DrillDown> getDrillDowns(Set<String> dimensions, AggregationQuery.Predicates predicates,
+	                                    Set<String> measures) {
+		Set<DrillDown> drillDowns = newHashSet();
+
+		AggregationQuery query = new AggregationQuery(newArrayList(dimensions), newArrayList(measures), predicates);
+
+		List<String> queryDimensions = getQueryDimensions(dimensions, predicates.asCollection());
+
+		for (Aggregation aggregation : aggregations.values()) {
+			Set<String> aggregationMeasures = newHashSet();
+			aggregationMeasures.addAll(aggregation.getFields());
+
+			if (!all(queryDimensions, in(aggregation.getKeys())) || !any(measures, in(aggregationMeasures)) ||
+					aggregation.hasPredicates() && !aggregation.applyQueryPredicates(query, structure).isMatches())
+				continue;
+
+			Set<String> availableMeasures = newHashSet();
+			Sets.intersection(aggregationMeasures, measures).copyInto(availableMeasures);
+
+			Iterable<String> availableDimensions = filter(aggregation.getKeys(), not(in(queryDimensions)));
+			Set<List<String>> drillDownChains = childParentRelationships.buildDrillDownChains(availableDimensions);
+
+			for (List<String> drillDownChain : drillDownChains) {
+				drillDowns.add(new DrillDown(drillDownChain, availableMeasures));
+			}
+		}
+
+		return drillDowns;
+	}
+
+	private List<String> getQueryDimensions(Iterable<String> dimensions,
+	                                            Iterable<AggregationQuery.Predicate> predicates) {
+		Set<String> eqPredicateDimensions = newHashSet();
+
+		for (AggregationQuery.Predicate predicate : predicates) {
+			if (predicate instanceof AggregationQuery.PredicateEq) {
+				eqPredicateDimensions.add(predicate.key);
+			}
+		}
+
+		return newArrayList(concat(dimensions, eqPredicateDimensions));
 	}
 
 	public Set<String> findChildrenDimensions(String parent) {
@@ -469,7 +501,30 @@ public final class Cube implements ConcurrentJmxMBean {
 		return buildDrillDownChain(Sets.<String>newHashSet(), dimension);
 	}
 
-	public Set<String> getAvailableMeasures(List<String> dimensions, List<String> allMeasures) {
+	public Set<String> getAvailableMeasures(Set<String> dimensions, AggregationQuery.Predicates predicates,
+	                                        Set<String> measures) {
+		Set<String> availableMeasures = newHashSet();
+
+		AggregationQuery query = new AggregationQuery(newArrayList(dimensions), newArrayList(measures), predicates);
+
+		List<String> queryDimensions = getQueryDimensions(dimensions, predicates.asCollection());
+
+		for (Aggregation aggregation : aggregations.values()) {
+			Set<String> aggregationMeasures = newHashSet();
+			aggregationMeasures.addAll(aggregation.getFields());
+
+			if (!all(queryDimensions, in(aggregation.getKeys())) || !any(measures, in(aggregationMeasures)) ||
+					aggregation.hasPredicates() && !aggregation.applyQueryPredicates(query, structure).isMatches())
+				continue;
+
+			Sets.intersection(aggregationMeasures, measures).copyInto(availableMeasures);
+		}
+
+		return availableMeasures;
+	}
+
+	@Deprecated
+	public Set<String> getAvailableMeasures(Set<String> dimensions, List<String> allMeasures) {
 		Set<String> availableMeasures = newHashSet();
 		Set<String> allMeasuresSet = newHashSet();
 		allMeasuresSet.addAll(allMeasures);

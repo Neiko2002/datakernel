@@ -16,8 +16,6 @@
 
 package io.datakernel.aggregation_db.keytype;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonPrimitive;
 import io.datakernel.serializer.asm.SerializerGen;
 import io.datakernel.serializer.asm.SerializerGenInt;
 import org.joda.time.Days;
@@ -41,14 +39,14 @@ public final class KeyTypeDate extends KeyType implements KeyTypeEnumerable {
 	}
 
 	@Override
-	public JsonPrimitive toJson(Object value) {
+	public String toString(Object value) {
 		LocalDate date = startDate.plusDays((Integer) value);
-		return new JsonPrimitive(date.toString());
+		return date.toString();
 	}
 
 	@Override
-	public Object fromJson(JsonElement value) {
-		LocalDate date = LocalDate.parse(value.getAsString());
+	public Object fromString(String str) {
+		LocalDate date = LocalDate.parse(str);
 		return Days.daysBetween(startDate, date).getDays();
 	}
 

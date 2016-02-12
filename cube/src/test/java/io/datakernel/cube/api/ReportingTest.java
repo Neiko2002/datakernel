@@ -16,108 +16,406 @@
 
 package io.datakernel.cube.api;
 
-import io.datakernel.codegen.AsmBuilder;
+import com.google.common.collect.ImmutableMap;
+import io.datakernel.aggregation_db.*;
+import io.datakernel.aggregation_db.fieldtype.FieldType;
+import io.datakernel.aggregation_db.keytype.KeyType;
+import io.datakernel.async.AsyncCallbacks;
+import io.datakernel.async.CompletionCallbackFuture;
+import io.datakernel.async.ResultCallback;
+import io.datakernel.async.RunnableWithException;
 import io.datakernel.codegen.utils.DefiningClassLoader;
+import io.datakernel.cube.Cube;
+import io.datakernel.cube.CubeMetadataStorage;
+import io.datakernel.cube.CubeMetadataStorageSql;
+import io.datakernel.cube.DrillDown;
+import io.datakernel.dns.NativeDnsResolver;
+import io.datakernel.eventloop.Eventloop;
+import io.datakernel.eventloop.EventloopService;
+import io.datakernel.examples.LogItem;
+import io.datakernel.examples.LogItemSplitter;
+import io.datakernel.http.AsyncHttpClient;
+import io.datakernel.http.AsyncHttpServer;
+import io.datakernel.http.HttpUtils;
+import io.datakernel.logfs.LogManager;
+import io.datakernel.logfs.LogToCubeMetadataStorage;
+import io.datakernel.logfs.LogToCubeRunner;
+import io.datakernel.stream.StreamProducers;
+import org.joda.time.LocalDate;
+import org.jooq.Configuration;
+import org.jooq.SQLDialect;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.nio.file.Paths;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
+import static com.google.common.collect.Maps.newHashMap;
 import static com.google.common.collect.Sets.newHashSet;
-import static io.datakernel.codegen.Expressions.*;
-import static io.datakernel.cube.api.ReportingDSL.*;
-import static org.junit.Assert.assertEquals;
+import static io.datakernel.aggregation_db.fieldtype.FieldTypes.doubleSum;
+import static io.datakernel.aggregation_db.fieldtype.FieldTypes.longSum;
+import static io.datakernel.aggregation_db.keytype.KeyTypes.dateKey;
+import static io.datakernel.aggregation_db.keytype.KeyTypes.intKey;
+import static io.datakernel.cube.CubeTestUtils.*;
+import static io.datakernel.cube.api.ReportingDSL.divide;
+import static io.datakernel.cube.api.ReportingDSL.percent;
+import static io.datakernel.dns.NativeDnsResolver.DEFAULT_DATAGRAM_SOCKET_SETTINGS;
+import static java.util.Arrays.asList;
+import static java.util.Collections.singleton;
+import static java.util.Collections.singletonList;
+import static junit.framework.TestCase.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class ReportingTest {
-	public interface TestQueryResultPlaceholder {
-		void computeMeasures();
+	private static final Logger logger = LoggerFactory.getLogger(ReportingTest.class);
 
-		void init();
+	private Eventloop eventloop;
+	private Eventloop clientEventloop;
+	private AsyncHttpServer server;
+	private AsyncHttpClient httpClient;
+	private CubeHttpClient cubeHttpClient;
 
-		Object getResult();
+	@Rule
+	public TemporaryFolder temporaryFolder = new TemporaryFolder();
+
+	private static final String DATABASE_PROPERTIES_PATH = "test.properties";
+	private static final SQLDialect DATABASE_DIALECT = SQLDialect.MYSQL;
+	private static final String LOG_PARTITION_NAME = "partitionA";
+	private static final List<String> LOG_PARTITIONS = singletonList(LOG_PARTITION_NAME);
+	private static final String LOG_NAME = "testlog";
+
+	private static final int SERVER_PORT = 50001;
+	private static final int TIMEOUT = 1000;
+
+	private static final Map<String, KeyType> DIMENSIONS = ImmutableMap.<String, KeyType>builder()
+			.put("date", dateKey(LocalDate.now()))
+			.put("advertiser", intKey())
+			.put("campaign", intKey())
+			.put("banner", intKey())
+			.build();
+
+	private static final Map<String, FieldType> MEASURES = ImmutableMap.<String, FieldType>builder()
+			.put("impressions", longSum())
+			.put("clicks", longSum())
+			.put("conversions", longSum())
+			.put("revenue", doubleSum())
+			.build();
+
+	private static final Map<String, ReportingDSLExpression> COMPUTED_MEASURES = ImmutableMap.<String, ReportingDSLExpression>builder()
+			.put("ctr", percent(divide("clicks", "impressions")))
+			.build();
+
+	private static final Map<String, String> CHILD_PARENT_RELATIONSHIPS = ImmutableMap.<String, String>builder()
+			.put("campaign", "advertiser")
+			.put("banner", "campaign")
+			.build();
+
+	private static AggregationStructure getStructure(DefiningClassLoader classLoader) {
+		return new AggregationStructure(classLoader, DIMENSIONS, MEASURES);
+	}
+
+	private static Cube getCube(Eventloop eventloop, ExecutorService executorService, DefiningClassLoader classLoader,
+	                            CubeMetadataStorage cubeMetadataStorage,
+	                            AggregationChunkStorage aggregationChunkStorage,
+	                            AggregationStructure cubeStructure) {
+		Cube cube = new Cube(eventloop, executorService, classLoader, cubeMetadataStorage, aggregationChunkStorage,
+				cubeStructure, Aggregation.DEFAULT_SORTER_ITEMS_IN_MEMORY, Aggregation.DEFAULT_SORTER_BLOCK_SIZE,
+				Aggregation.DEFAULT_AGGREGATION_CHUNK_SIZE);
+		cube.addAggregation("detailed", new AggregationMetadata(LogItem.DIMENSIONS, asList("impressions", "clicks", "conversions")));
+		cube.setChildParentRelationships(CHILD_PARENT_RELATIONSHIPS);
+		return cube;
+	}
+
+	private static ReportingConfiguration getReportingConfiguration() {
+		return new ReportingConfiguration()
+				.addResolvedAttributeForKey("advertiserName", singletonList("advertiser"), String.class, new AdvertiserResolver())
+				.setComputedMeasures(COMPUTED_MEASURES);
+	}
+
+	private static class AdvertiserResolver implements AttributeResolver {
+		@Override
+		public Map<PrimaryKey, Object[]> resolve(Set<PrimaryKey> keys, List<String> attributes) {
+			Map<PrimaryKey, Object[]> result = newHashMap();
+
+			for (PrimaryKey key : keys) {
+				String s = key.get(0).toString();
+
+				switch (s) {
+					case "1":
+						result.put(key, new Object[]{"first"});
+						break;
+					case "2":
+						result.put(key, new Object[]{"second"});
+						break;
+					case "3":
+						result.put(key, new Object[]{"third"});
+						break;
+				}
+			}
+
+			return result;
+		}
+	}
+
+	@Before
+	public void setUp() throws Exception {
+		ExecutorService executor = Executors.newCachedThreadPool();
+
+		DefiningClassLoader classLoader = new DefiningClassLoader();
+		eventloop = new Eventloop();
+		Path aggregationsDir = temporaryFolder.newFolder().toPath();
+		Path logsDir = temporaryFolder.newFolder().toPath();
+		AggregationStructure structure = getStructure(classLoader);
+
+		ReportingConfiguration reportingConfiguration = getReportingConfiguration();
+		Configuration jooqConfiguration = getJooqConfiguration(DATABASE_PROPERTIES_PATH, DATABASE_DIALECT);
+		AggregationChunkStorage aggregationChunkStorage =
+				getAggregationChunkStorage(eventloop, executor, structure, aggregationsDir);
+		CubeMetadataStorageSql cubeMetadataStorageSql =
+				new CubeMetadataStorageSql(eventloop, executor, jooqConfiguration, "processId");
+		LogToCubeMetadataStorage logToCubeMetadataStorage =
+				getLogToCubeMetadataStorage(eventloop, executor, jooqConfiguration, cubeMetadataStorageSql);
+		Cube cube = getCube(eventloop, executor, classLoader, cubeMetadataStorageSql, aggregationChunkStorage, structure);
+		LogManager<LogItem> logManager = getLogManager(LogItem.class, eventloop, executor, classLoader, logsDir);
+		LogToCubeRunner<LogItem> logToCubeRunner = new LogToCubeRunner<>(eventloop, cube, logManager,
+				LogItemSplitter.factory(), LOG_NAME, LOG_PARTITIONS, logToCubeMetadataStorage);
+		cube.setReportingConfiguration(reportingConfiguration);
+
+		List<LogItem> logItems = asList(new LogItem(0, 1, 1, 1, 10, 1, 1, 0.0), new LogItem(1, 1, 1, 1, 20, 3, 1, 0.0),
+				new LogItem(2, 1, 1, 1, 15, 2, 0, 0.0), new LogItem(3, 1, 1, 1, 30, 5, 2, 0.0),
+				new LogItem(1, 2, 2, 2, 100, 5, 0, 0.0), new LogItem(1, 3, 3, 3, 80, 5, 0, 0.0));
+		StreamProducers.OfIterator<LogItem> producerOfRandomLogItems =
+				new StreamProducers.OfIterator<>(eventloop, logItems.iterator());
+		producerOfRandomLogItems.streamTo(logManager.consumer(LOG_PARTITION_NAME));
+		eventloop.run();
+
+		logToCubeRunner.processLog(AsyncCallbacks.ignoreCompletionCallback());
+		eventloop.run();
+
+		cube.loadChunks(AsyncCallbacks.ignoreCompletionCallback());
+		eventloop.run();
+
+		server = CubeHttpServer.createServer(cube, eventloop, classLoader, SERVER_PORT);
+		final CompletionCallbackFuture serverStartFuture = new CompletionCallbackFuture();
+		eventloop.execute(new RunnableWithException() {
+			@Override
+			public void runWithException() throws Exception {
+				server.listen();
+				serverStartFuture.onComplete();
+			}
+		});
+		new Thread(eventloop).start();
+		serverStartFuture.await();
+
+		clientEventloop = new Eventloop();
+		NativeDnsResolver dnsClient = new NativeDnsResolver(clientEventloop, DEFAULT_DATAGRAM_SOCKET_SETTINGS, TIMEOUT,
+				HttpUtils.inetAddress("8.8.8.8"));
+		httpClient = new AsyncHttpClient(clientEventloop, dnsClient);
+		cubeHttpClient = new CubeHttpClient("http://127.0.0.1:" + SERVER_PORT, httpClient, TIMEOUT, structure, reportingConfiguration);
 	}
 
 	@Test
-	public void test() throws Exception {
-		DefiningClassLoader classLoader = new DefiningClassLoader();
-		ReportingDSLExpression d = divide(multiply(divide("a", "b"), 100), "c");
-		TestQueryResultPlaceholder resultPlaceholder = new AsmBuilder<>(classLoader, TestQueryResultPlaceholder.class)
-				.field("a", long.class)
-				.field("b", long.class)
-				.field("c", double.class)
-				.field("d", double.class)
-				.method("computeMeasures", set(getter(self(), "d"), d.getExpression()))
-				.method("init", sequence(
-						set(getter(self(), "a"), value(1)),
-						set(getter(self(), "b"), value(100)),
-						set(getter(self(), "c"), value(5))))
-				.method("getResult", getter(self(), "d"))
-				.newInstance();
-		resultPlaceholder.init();
-		resultPlaceholder.computeMeasures();
+	public void testQuery() throws Exception {
+		ReportingQuery query = new ReportingQuery()
+				.dimensions("date", "campaign")
+				.measures("impressions", "clicks", "ctr", "revenue")
+				.filters(new AggregationQuery.Predicates()
+						.eq("banner", 1)
+						.between("date", 1, 2))
+				.sort(AggregationQuery.Ordering.asc("campaign"), AggregationQuery.Ordering.asc("ctr"),
+						AggregationQuery.Ordering.desc("banner"))
+				.metadataFields("dimensions", "measures", "attributes", "drillDowns", "sortedBy");
 
-		assertEquals(0.2, resultPlaceholder.getResult());
-		assertEquals(newHashSet("a", "b", "c"), d.getMeasureDependencies());
+		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];
+		startBlocking(httpClient);
+		cubeHttpClient.query(query, new ResultCallback<ReportingQueryResult>() {
+			@Override
+			public void onResult(ReportingQueryResult result) {
+				queryResult[0] = result;
+				stopBlocking(httpClient);
+			}
+
+			@Override
+			public void onException(Exception exception) {
+				logger.error("Query failed", exception);
+			}
+		});
+
+		clientEventloop.run();
+
+		List<Map<String, Object>> records = queryResult[0].getRecords();
+		assertEquals(2, records.size());
+		assertEquals(6, records.get(0).size());
+		assertEquals(2, ((Number) records.get(0).get("date")).intValue());
+		assertEquals(1, ((Number) records.get(0).get("advertiser")).intValue());
+		assertEquals(15, ((Number) records.get(0).get("impressions")).intValue());
+		assertEquals(13.333, ((Number) records.get(0).get("ctr")).doubleValue(), 1E-3);
+		assertEquals(1, ((Number) records.get(1).get("date")).intValue());
+		assertEquals(1, ((Number) records.get(1).get("advertiser")).intValue());
+		assertEquals(20, ((Number) records.get(1).get("impressions")).intValue());
+		assertEquals(15, ((Number) records.get(1).get("ctr")).doubleValue(), 1E-3);
+		assertEquals(2, queryResult[0].getCount());
+		assertEquals(newHashSet("impressions", "clicks", "ctr"), newHashSet(queryResult[0].getMeasures()));
+		assertEquals(newHashSet("date", "advertiser", "campaign"), newHashSet(queryResult[0].getDimensions()));
+		assertEquals(newHashSet("campaign", "ctr"), newHashSet(queryResult[0].getSortedBy()));
+		assertTrue(queryResult[0].getDrillDowns().isEmpty());
+		assertTrue(queryResult[0].getAttributes().isEmpty());
+		Map<String, Object> totals = queryResult[0].getTotals();
+		assertEquals(35, ((Number) totals.get("impressions")).intValue());
+		assertEquals(5, ((Number) totals.get("clicks")).intValue());
+		assertEquals(14.285, ((Number) totals.get("ctr")).doubleValue(), 1E-3);
 	}
 
 	@Test
-	public void testNullDivision() throws Exception {
-		DefiningClassLoader classLoader = new DefiningClassLoader();
-		ReportingDSLExpression d = divide(multiply(divide("a", "b"), 100), "c");
-		TestQueryResultPlaceholder resultPlaceholder = new AsmBuilder<>(classLoader, TestQueryResultPlaceholder.class)
-				.field("a", long.class)
-				.field("b", long.class)
-				.field("c", double.class)
-				.field("d", double.class)
-				.method("computeMeasures", set(getter(self(), "d"), d.getExpression()))
-				.method("init", sequence(
-						set(getter(self(), "a"), value(1)),
-						set(getter(self(), "b"), value(0)),
-						set(getter(self(), "c"), value(0))))
-				.method("getResult", getter(self(), "d"))
-				.newInstance();
-		resultPlaceholder.init();
-		resultPlaceholder.computeMeasures();
+	public void testPaginationAndDrillDowns() throws Exception {
+		ReportingQuery query = new ReportingQuery()
+				.dimensions("date")
+				.measures("impressions", "revenue")
+				.limit(1)
+				.offset(2)
+				.metadataFields("drillDowns");
 
-		assertEquals(0.0, resultPlaceholder.getResult());
+		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];
+		startBlocking(httpClient);
+		cubeHttpClient.query(query, new ResultCallback<ReportingQueryResult>() {
+			@Override
+			public void onResult(ReportingQueryResult result) {
+				queryResult[0] = result;
+				stopBlocking(httpClient);
+			}
+
+			@Override
+			public void onException(Exception exception) {
+				logger.error("Query failed", exception);
+			}
+		});
+
+		clientEventloop.run();
+
+		List<Map<String, Object>> records = queryResult[0].getRecords();
+		assertEquals(1, records.size());
+		assertEquals(2, records.get(0).size());
+		assertEquals(2, ((Number) records.get(0).get("date")).intValue());
+		assertEquals(15, ((Number) records.get(0).get("impressions")).intValue());
+		assertEquals(4, queryResult[0].getCount());
+
+		Set<DrillDown> drillDowns = newHashSet();
+		drillDowns.add(new DrillDown(singletonList("advertiser"), singleton("impressions")));
+		drillDowns.add(new DrillDown(asList("advertiser", "campaign"), singleton("impressions")));
+		drillDowns.add(new DrillDown(asList("advertiser", "campaign", "banner"), singleton("impressions")));
+		assertEquals(drillDowns, queryResult[0].getDrillDowns());
 	}
 
 	@Test
-	public void testSqrt() throws Exception {
-		DefiningClassLoader classLoader = new DefiningClassLoader();
-		ReportingDSLExpression c = sqrt(add("a", "b"));
-		TestQueryResultPlaceholder resultPlaceholder = new AsmBuilder<>(classLoader, TestQueryResultPlaceholder.class)
-				.field("a", double.class)
-				.field("b", double.class)
-				.field("c", double.class)
-				.method("computeMeasures", set(getter(self(), "c"), c.getExpression()))
-				.method("init", sequence(
-						set(getter(self(), "a"), value(2.0)),
-						set(getter(self(), "b"), value(7.0))))
-				.method("getResult", getter(self(), "c"))
-				.newInstance();
-		resultPlaceholder.init();
-		resultPlaceholder.computeMeasures();
+	public void testFilterAttributes() throws Exception {
+		ReportingQuery query = new ReportingQuery()
+				.dimensions("date")
+				.attributes("advertiserName")
+				.measures("impressions")
+				.limit(0)
+				.filters(new AggregationQuery.Predicates().eq("advertiser", 1))
+				.metadataFields("filterAttributes");
 
-		assertEquals(3.0, resultPlaceholder.getResult());
+		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];
+		startBlocking(httpClient);
+		cubeHttpClient.query(query, new ResultCallback<ReportingQueryResult>() {
+			@Override
+			public void onResult(ReportingQueryResult result) {
+				queryResult[0] = result;
+				stopBlocking(httpClient);
+			}
+
+			@Override
+			public void onException(Exception exception) {
+				logger.error("Query failed", exception);
+			}
+		});
+
+		clientEventloop.run();
+
+		Map<String, Object> filterAttributes = queryResult[0].getFilterAttributes();
+		assertEquals(1, filterAttributes.size());
+		assertEquals("first", filterAttributes.get("advertiserName"));
 	}
 
 	@Test
-	public void testSqrtOfNegativeArgument() throws Exception {
-		DefiningClassLoader classLoader = new DefiningClassLoader();
-		ReportingDSLExpression c = sqrt(subtract("a", "b"));
-		TestQueryResultPlaceholder resultPlaceholder = new AsmBuilder<>(classLoader, TestQueryResultPlaceholder.class)
-				.field("a", double.class)
-				.field("b", double.class)
-				.field("c", double.class)
-				.method("computeMeasures", set(getter(self(), "c"), c.getExpression()))
-				.method("init", sequence(
-						set(getter(self(), "a"), value(0.0)),
-						set(getter(self(), "b"), value(1E-10))))
-				.method("getResult", getter(self(), "c"))
-				.newInstance();
-		resultPlaceholder.init();
-		resultPlaceholder.computeMeasures();
+	public void testSearchAndFieldsParameter() throws Exception {
+		ReportingQuery query = new ReportingQuery()
+				.attributes("advertiserName")
+				.measures("clicks")
+				.fields("advertiser", "advertiserName")
+				.search("s")
+				.metadataFields("measures");
 
-		assertEquals(0.0, resultPlaceholder.getResult());
+		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];
+		startBlocking(httpClient);
+		cubeHttpClient.query(query, new ResultCallback<ReportingQueryResult>() {
+			@Override
+			public void onResult(ReportingQueryResult result) {
+				queryResult[0] = result;
+				stopBlocking(httpClient);
+			}
+
+			@Override
+			public void onException(Exception exception) {
+				logger.error("Query failed", exception);
+			}
+		});
+
+		clientEventloop.run();
+
+		List<Map<String, Object>> records = queryResult[0].getRecords();
+		assertEquals(2, records.size());
+		assertEquals(2, records.get(0).size());
+		assertEquals(1, ((Number) records.get(0).get("advertiser")).intValue());
+		assertEquals("first", records.get(0).get("advertiserName"));
+		assertEquals(2, ((Number) records.get(1).get("advertiser")).intValue());
+		assertEquals("second", records.get(1).get("advertiserName"));
+		assertEquals(singletonList("clicks"), queryResult[0].getMeasures());
+	}
+
+	@After
+	public void tearDown() throws Exception {
+		final CompletionCallbackFuture serverStopFuture = new CompletionCallbackFuture();
+		eventloop.execute(new RunnableWithException() {
+			@Override
+			public void runWithException() throws Exception {
+				server.close();
+				serverStopFuture.onComplete();
+			}
+		});
+		serverStopFuture.await();
+	}
+
+	private static void startBlocking(EventloopService service) throws ExecutionException, InterruptedException {
+		CompletionCallbackFuture future = new CompletionCallbackFuture();
+		service.start(future);
+
+		try {
+			future.await();
+		} catch (Exception e) {
+			logger.error("Service {} start exception", e);
+		}
+	}
+
+	private static void stopBlocking(EventloopService service) {
+		CompletionCallbackFuture future = new CompletionCallbackFuture();
+		service.stop(future);
+
+		try {
+			future.await();
+		} catch (Exception e) {
+			logger.error("Service {} stop exception", e);
+		}
 	}
 }
