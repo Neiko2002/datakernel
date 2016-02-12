@@ -418,34 +418,6 @@ public final class Cube implements ConcurrentJmxMBean {
 		});
 	}
 
-	@Deprecated
-	public DrillDowns getAvailableDrillDowns(Set<String> dimensions, AggregationQuery.Predicates predicates,
-	                                         Set<String> measures) {
-		Set<String> availableMeasures = newHashSet();
-		Set<String> availableDimensions = newHashSet();
-
-		AggregationQuery query = new AggregationQuery(newArrayList(dimensions), newArrayList(measures), predicates);
-
-		List<String> queryDimensions = getQueryDimensions(dimensions, predicates.asCollection());
-
-		for (Aggregation aggregation : aggregations.values()) {
-			Set<String> aggregationMeasures = newHashSet();
-			aggregationMeasures.addAll(aggregation.getFields());
-
-			if (!all(queryDimensions, in(aggregation.getKeys())) || !any(measures, in(aggregationMeasures)) ||
-					aggregation.hasPredicates() && !aggregation.applyQueryPredicates(query, structure).isMatches())
-				continue;
-
-			Sets.intersection(aggregationMeasures, measures).copyInto(availableMeasures);
-
-			availableDimensions.addAll(newArrayList(filter(aggregation.getKeys(), not(in(queryDimensions)))));
-		}
-
-		Set<List<String>> drillDownChains = childParentRelationships.buildDrillDownChains(dimensions, availableDimensions);
-
-		return new DrillDowns(drillDownChains, availableMeasures);
-	}
-
 	public Set<DrillDown> getDrillDowns(Set<String> dimensions, AggregationQuery.Predicates predicates,
 	                                    Set<String> measures) {
 		Set<DrillDown> drillDowns = newHashSet();
@@ -489,10 +461,6 @@ public final class Cube implements ConcurrentJmxMBean {
 		return newArrayList(concat(dimensions, eqPredicateDimensions));
 	}
 
-	public Set<String> findChildrenDimensions(String parent) {
-		return childParentRelationships.findChildren(parent);
-	}
-
 	public List<String> buildDrillDownChain(Set<String> usedDimensions, String dimension) {
 		return childParentRelationships.buildDrillDownChain(usedDimensions, dimension);
 	}
@@ -518,30 +486,6 @@ public final class Cube implements ConcurrentJmxMBean {
 				continue;
 
 			Sets.intersection(aggregationMeasures, measures).copyInto(availableMeasures);
-		}
-
-		return availableMeasures;
-	}
-
-	@Deprecated
-	public Set<String> getAvailableMeasures(Set<String> dimensions, List<String> allMeasures) {
-		Set<String> availableMeasures = newHashSet();
-		Set<String> allMeasuresSet = newHashSet();
-		allMeasuresSet.addAll(allMeasures);
-
-		for (Aggregation aggregation : aggregations.values()) {
-			Set<String> aggregationMeasures = newHashSet();
-			aggregationMeasures.addAll(aggregation.getFields());
-
-			if (!all(dimensions, in(aggregation.getKeys()))) {
-				continue;
-			}
-
-			if (!any(allMeasures, in(aggregation.getFields()))) {
-				continue;
-			}
-
-			Sets.intersection(aggregationMeasures, allMeasuresSet).copyInto(availableMeasures);
 		}
 
 		return availableMeasures;

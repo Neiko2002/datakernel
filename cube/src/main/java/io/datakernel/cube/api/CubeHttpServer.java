@@ -29,10 +29,6 @@ import io.datakernel.eventloop.Eventloop;
 import io.datakernel.http.*;
 
 public final class CubeHttpServer {
-	public static final String DIMENSIONS_REQUEST_PATH = "/dimensions/";
-	public static final String OLD_QUERY_REQUEST_PATH = "/old_query/";
-	public static final String INFO_REQUEST_PATH = "/info/";
-	public static final String REPORTING_QUERY_REQUEST_PATH = "/reporting/";
 	public static final String QUERY_REQUEST_PATH = "/";
 
 	public static MiddlewareServlet createServlet(Cube cube, Eventloop eventloop, DefiningClassLoader classLoader) {
@@ -44,14 +40,6 @@ public final class CubeHttpServer {
 		MiddlewareServlet servlet = new MiddlewareServlet();
 
 		final HttpRequestHandler handler = new HttpRequestHandler(gson, cube, eventloop, classLoader);
-
-		servlet.get(INFO_REQUEST_PATH, new InfoRequestHandler(cube, gson, classLoader));
-
-		servlet.get(OLD_QUERY_REQUEST_PATH, new QueryHandler(gson, cube, eventloop, classLoader));
-
-		servlet.get(DIMENSIONS_REQUEST_PATH, new DimensionsRequestHandler(gson, cube, eventloop, classLoader));
-
-		servlet.get(REPORTING_QUERY_REQUEST_PATH, new ReportingQueryHandler(gson, cube, eventloop, classLoader));
 
 		servlet.get(QUERY_REQUEST_PATH, new AsyncHttpServlet() {
 			@Override

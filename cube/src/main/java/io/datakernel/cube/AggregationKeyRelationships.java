@@ -37,17 +37,6 @@ public class AggregationKeyRelationships {
 		}
 	}
 
-	@Deprecated
-	public Set<List<String>> buildDrillDownChains(Set<String> usedDimensions, Iterable<String> availableDimensions) {
-		Set<List<String>> drillDowns = newHashSet();
-		for (String dimension : availableDimensions) {
-			List<String> drillDown = buildDrillDownChain(usedDimensions, dimension);
-			drillDowns.add(drillDown);
-		}
-		return drillDowns;
-	}
-
-	@Deprecated
 	public List<String> buildDrillDownChain(Set<String> usedDimensions, String dimension) {
 		LinkedList<String> drillDown = new LinkedList<>();
 		drillDown.add(dimension);
