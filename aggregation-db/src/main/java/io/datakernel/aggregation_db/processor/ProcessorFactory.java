@@ -57,19 +57,18 @@ public final class ProcessorFactory {
 			FieldType fieldType = structure.getFieldType(field);
 			Class<?> accumulatorClass = fieldType.getDataType();
 			FieldProcessor fieldProcessor = fieldType.fieldProcessor();
-			Class<?> valueClass = getType(inputClass, field);
 			onFirstItemDef.add(fieldProcessor
 					.getOnFirstItemExpression(
 							getter(accumulator, field),
 							accumulatorClass,
 							getter(cast(arg(2), inputClass), field),
-							valueClass));
+							accumulatorClass));
 			onNextItemDef.add(fieldProcessor
 					.getOnNextItemExpression(
 							getter(cast(arg(3), outputClass), field),
 							accumulatorClass,
 							getter(cast(arg(2), inputClass), field),
-							valueClass));
+							accumulatorClass));
 		}
 
 		onFirstItemDef.add(accumulator);

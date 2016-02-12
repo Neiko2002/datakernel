@@ -201,44 +201,6 @@ public class AggregationStructure {
 		return builder.defineClass();
 	}
 
-	public StreamReducers.Reducer mergeFieldsReducer(Class<?> inputClass, Class<?> outputClass,
-	                                                 List<String> keys, List<String> recordFields) {
-		logger.trace("Creating merge fields reducer for keys {}, fields {}", keys, recordFields);
-		AsmBuilder builder = new AsmBuilder(classLoader, StreamReducers.Reducer.class);
-
-		Expression accumulator1 = let(constructor(outputClass));
-		ExpressionSequence onFirstItemDef = sequence(accumulator1);
-		for (String key : keys) {
-			onFirstItemDef.add(set(
-					getter(accumulator1, key),
-					getter(cast(arg(2), inputClass), key)));
-		}
-		for (String field : recordFields) {
-			onFirstItemDef.add(set(
-					getter(accumulator1, field),
-					getter(cast(arg(2), inputClass), field)));
-		}
-		onFirstItemDef.add(accumulator1);
-		builder.method("onFirstItem", onFirstItemDef);
-
-		Expression accumulator2 = let(cast(arg(3), outputClass));
-		ExpressionSequence onNextItemDef = sequence(accumulator2);
-		for (String field : recordFields) {
-			onNextItemDef.add(set(
-					getter(accumulator2, field),
-					add(
-							getter(cast(arg(2), inputClass), field),
-							getter(cast(arg(3), outputClass), field)
-					)));
-		}
-		onNextItemDef.add(accumulator2);
-		builder.method("onNextItem", onNextItemDef);
-
-		builder.method("onComplete", call(arg(0), "onData", arg(2)));
-
-		return (StreamReducers.Reducer) builder.newInstance();
-	}
-
 	public <T> BufferSerializer<T> createBufferSerializer(Class<T> recordClass, List<String> keys, List<String> fields) {
 		SerializerGenClass serializerGenClass = new SerializerGenClass(recordClass);
 		for (String key : keys) {

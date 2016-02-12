@@ -185,8 +185,19 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		JsonObject jsonTotals = new JsonObject();
 
 		for (String field : measures) {
+			FieldType fieldType = structure.getFieldType(field);
 			Object totalFieldValue = generateGetter(classLoader, totals.getClass(), field).get(totals);
-			jsonTotals.add(field, new JsonPrimitive((Number) totalFieldValue));
+
+			JsonElement json;
+			if (fieldType == null)
+				json = new JsonPrimitive((Number) totalFieldValue);
+			else {
+				Object printable = fieldType.getPrintable(totalFieldValue);
+				json = printable instanceof Number ?
+						new JsonPrimitive((Number) printable) : new JsonPrimitive(printable.toString());
+			}
+
+			jsonTotals.add(field, json);
 		}
 
 		return jsonTotals;

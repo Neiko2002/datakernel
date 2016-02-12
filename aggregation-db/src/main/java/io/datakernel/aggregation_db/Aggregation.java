@@ -223,6 +223,11 @@ public class Aggregation {
 		++lastRevisionId;
 	}
 
+	public StreamReducers.Reducer aggregationReducer(Class<?> inputClass, Class<?> outputClass, List<String> keys,
+	                                                 List<String> fields) {
+		return processorFactory.aggregationReducer(inputClass, outputClass, keys, fields);
+	}
+
 	public static <T> StreamConsumer<T> createChunker(PartitioningStrategy partitioningStrategy, Eventloop eventloop,
 	                                                  List<String> keys, List<String> fields,
 	                                                  Class<T> recordClass, AggregationChunkStorage storage,

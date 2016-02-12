@@ -347,7 +347,7 @@ public final class Cube implements ConcurrentJmxMBean {
 
 			Function keyFunction = structure.createKeyFunction(aggregationClass, resultKeyClass, resultDimensions);
 
-			StreamReducers.Reducer reducer = structure.mergeFieldsReducer(aggregationClass, resultClass,
+			StreamReducers.Reducer reducer = aggregation.aggregationReducer(aggregationClass, resultClass,
 					resultDimensions, aggregationMeasures);
 
 			StreamConsumer streamReducerInput = streamReducer.newInput(keyFunction, reducer);

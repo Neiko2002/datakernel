@@ -357,12 +357,12 @@ public final class RequestExecutor {
 			TotalsPlaceholder totalsPlaceholder = computeTotals(results);
 
 			List<String> resultMeasures = newArrayList(filter(concat(storedMeasures, computedMeasures),
-						new Predicate<String>() {
-							@Override
-							public boolean apply(String measure) {
-								return queryMeasures.contains(measure);
-							}
-						}));
+					new Predicate<String>() {
+						@Override
+						public boolean apply(String measure) {
+							return queryMeasures.contains(measure);
+						}
+					}));
 
 			callback.onResult(buildResult(applyLimitAndOffset(results), totalsPlaceholder, results.size(),
 					resultMeasures, filterAttributesPlaceholder));
@@ -413,9 +413,18 @@ public final class RequestExecutor {
 
 		TotalsPlaceholder computeTotals(List<QueryResultPlaceholder> results) {
 			TotalsPlaceholder totalsPlaceholder = createTotalsPlaceholder(resultClass, storedMeasures, computedMeasures);
-			for (QueryResultPlaceholder record : results) {
-				totalsPlaceholder.accumulate(record);
+
+			if (results.isEmpty()) {
+				totalsPlaceholder.computeMeasures();
+				return totalsPlaceholder;
 			}
+
+			totalsPlaceholder.init(results.get(0));
+
+			for (int i = 1; i < results.size(); ++i) {
+				totalsPlaceholder.accumulate(results.get(i));
+			}
+
 			totalsPlaceholder.computeMeasures();
 			return totalsPlaceholder;
 		}
@@ -432,14 +441,18 @@ public final class RequestExecutor {
 				builder.field(computedMeasure, double.class);
 			}
 
+			ExpressionSequence initSequence = sequence();
 			ExpressionSequence accumulateSequence = sequence();
 			for (String field : requestedStoredFields) {
-				accumulateSequence.add(set(
-						getter(self(), field),
-						add(
-								getter(self(), field),
-								getter(cast(arg(0), inputClass), field))));
+				FieldType fieldType = structure.getFieldType(field);
+				initSequence.add(fieldType.fieldProcessor().getOnFirstItemExpression(
+						getter(self(), field), fieldType.getDataType(),
+						getter(cast(arg(0), inputClass), field), fieldType.getDataType()));
+				accumulateSequence.add(fieldType.fieldProcessor().getOnNextItemExpression(
+						getter(self(), field), fieldType.getDataType(),
+						getter(cast(arg(0), inputClass), field), fieldType.getDataType()));
 			}
+			builder.method("init", initSequence);
 			builder.method("accumulate", accumulateSequence);
 
 			ExpressionSequence computeSequence = sequence();
