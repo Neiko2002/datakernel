@@ -21,6 +21,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import io.datakernel.aggregation_db.AggregationStructure;
+import io.datakernel.aggregation_db.fieldtype.FieldType;
 import io.datakernel.aggregation_db.keytype.KeyType;
 import io.datakernel.codegen.utils.DefiningClassLoader;
 import io.datakernel.cube.DrillDown;
@@ -71,9 +72,11 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		}
 
 		FieldGetter[] measureGetters = new FieldGetter[measures.size()];
-		for (int i = 0; i < measures.size(); ++i) {
+		FieldType[] fieldTypes = new FieldType[measures.size()];
+ 		for (int i = 0; i < measures.size(); ++i) {
 			String field = measures.get(i);
 			measureGetters[i] = generateGetter(classLoader, resultClass, field);
+		    fieldTypes[i] = structure.getFieldType(field);
 		}
 
 		JsonObject jsonMetadata = new JsonObject();
@@ -97,7 +100,7 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 			jsonMetadata.add(SORTED_BY_FIELD, getJsonArrayFromList(sortedBy));
 
 		JsonArray jsonRecords = getRecordsJson(results, fields, dimensions, attributes, measures, dimensionGetters,
-				attributeGetters, measureGetters, keyTypes);
+				keyTypes, measureGetters, fieldTypes, attributeGetters);
 
 		JsonObject jsonResult = new JsonObject();
 		jsonResult.add(RECORDS_FIELD, jsonRecords);
@@ -122,8 +125,8 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 
 	private JsonArray getRecordsJson(List results, Set<String> fields, List<String> dimensions, List<String> attributes,
 	                                 List<String> measures, FieldGetter[] dimensionGetters,
-	                                 FieldGetter[] attributeGetters, FieldGetter[] measureGetters,
-	                                 KeyType[] keyTypes) {
+	                                 KeyType[] keyTypes, FieldGetter[] measureGetters, FieldType[] fieldTypes,
+	                                 FieldGetter[] attributeGetters) {
 		JsonArray jsonRecords = new JsonArray();
 
 		for (Object result : results) {
@@ -136,7 +139,9 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 					continue;
 
 				Object value = dimensionGetters[n].get(result);
-				JsonElement json = new JsonPrimitive(keyTypes[n].toString(value));
+				Object printable = keyTypes[n].getPrintable(value);
+				JsonElement json = printable instanceof Number ?
+						new JsonPrimitive((Number) printable) : new JsonPrimitive(printable.toString());
 				resultJsonObject.add(dimension, json);
 			}
 
@@ -156,7 +161,18 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 				if (!nullOrContains(fields, measure))
 					continue;
 
-				resultJsonObject.add(measure, new JsonPrimitive((Number) measureGetters[k].get(result)));
+				Object value = measureGetters[k].get(result);
+
+				JsonElement json;
+				if (fieldTypes[k] == null)
+					json = new JsonPrimitive((Number) value);
+				else {
+					Object printable = fieldTypes[k].getPrintable(value);
+					json = printable instanceof Number ?
+							new JsonPrimitive((Number) printable) : new JsonPrimitive(printable.toString());
+				}
+
+				resultJsonObject.add(measure, json);
 			}
 
 			jsonRecords.add(resultJsonObject);

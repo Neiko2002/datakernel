@@ -33,7 +33,7 @@ public final class KeyTypeEnum<T extends Enum<T>> extends KeyType {
 	}
 
 	@Override
-	public String toString(Object value) {
+	public Object getPrintable(Object value) {
 		return ((Enum<?>) value).name();
 	}
 

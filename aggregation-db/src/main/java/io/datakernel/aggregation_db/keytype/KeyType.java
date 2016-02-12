@@ -46,8 +46,8 @@ public abstract class KeyType implements Comparator<Object> {
 		return restrictedValue;
 	}
 
-	public String toString(Object value) {
-		return value.toString();
+	public Object getPrintable(Object value) {
+		return value;
 	}
 
 	public abstract Object fromString(String str);

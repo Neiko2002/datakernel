@@ -39,9 +39,8 @@ public final class KeyTypeDate extends KeyType implements KeyTypeEnumerable {
 	}
 
 	@Override
-	public String toString(Object value) {
-		LocalDate date = startDate.plusDays((Integer) value);
-		return date.toString();
+	public Object getPrintable(Object value) {
+		return startDate.plusDays((Integer) value);
 	}
 
 	@Override

@@ -38,11 +38,6 @@ public final class KeyTypeString extends KeyType {
 	}
 
 	@Override
-	public String toString(Object value) {
-		return (String) value;
-	}
-
-	@Override
 	public Object fromString(String str) {
 		return str;
 	}

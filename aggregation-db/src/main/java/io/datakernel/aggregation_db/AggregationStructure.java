@@ -88,8 +88,8 @@ public class AggregationStructure {
 		return fields;
 	}
 
-	public FieldType getFieldType(String outputField) {
-		return fields.get(outputField);
+	public FieldType getFieldType(String field) {
+		return fields.get(field);
 	}
 
 	public boolean containsField(String field) {

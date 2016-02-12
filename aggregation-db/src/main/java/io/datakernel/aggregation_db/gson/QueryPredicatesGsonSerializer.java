@@ -35,7 +35,8 @@ public final class QueryPredicatesGsonSerializer implements JsonSerializer<Aggre
 
 	private JsonPrimitive encodeKey(String key, Object value) {
 		KeyType keyType = structure.getKeyType(key);
-		return new JsonPrimitive(keyType.toString(value));
+		Object printable = keyType.getPrintable(value);
+		return printable instanceof Number ? new JsonPrimitive((Number) printable) : new JsonPrimitive(printable.toString());
 	}
 
 	private Object parseKey(String key, JsonElement value) {
