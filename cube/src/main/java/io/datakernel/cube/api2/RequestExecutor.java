@@ -44,8 +44,8 @@ import static com.google.common.collect.Maps.newHashMap;
 import static com.google.common.collect.Maps.newLinkedHashMap;
 import static com.google.common.collect.Sets.newHashSet;
 import static io.datakernel.codegen.Expressions.*;
-import static io.datakernel.cube.api.CommonUtils.nullOrContains;
 import static io.datakernel.cube.api.CommonUtils.instantiate;
+import static io.datakernel.cube.api.CommonUtils.nullOrContains;
 import static java.util.Collections.singletonList;
 
 public final class RequestExecutor {

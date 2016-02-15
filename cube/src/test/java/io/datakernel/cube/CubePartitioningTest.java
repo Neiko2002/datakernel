@@ -56,9 +56,7 @@ import static io.datakernel.aggregation_db.fieldtype.FieldTypes.doubleSum;
 import static io.datakernel.aggregation_db.fieldtype.FieldTypes.longSum;
 import static io.datakernel.aggregation_db.keytype.KeyTypes.dateKey;
 import static io.datakernel.aggregation_db.keytype.KeyTypes.intKey;
-import static io.datakernel.cube.CubeTestUtils.getAggregationChunkStorage;
-import static io.datakernel.cube.CubeTestUtils.getLogManager;
-import static io.datakernel.cube.CubeTestUtils.getLogToCubeMetadataStorage;
+import static io.datakernel.cube.CubeTestUtils.*;
 import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 
@@ -104,21 +102,7 @@ public class CubePartitioningTest {
 		return cube;
 	}
 
-	private static Configuration getJooqConfiguration() throws IOException {
-		Properties properties = new Properties();
-		properties.load(new InputStreamReader(
-				new BufferedInputStream(new FileInputStream(
-						new File(DATABASE_PROPERTIES_PATH))), UTF_8));
-		HikariDataSource dataSource = new HikariDataSource(new HikariConfig(properties));
-
-		Configuration jooqConfiguration = new DefaultConfiguration();
-		jooqConfiguration.set(new DataSourceConnectionProvider(dataSource));
-		jooqConfiguration.set(DATABASE_DIALECT);
-
-		return jooqConfiguration;
-	}
-
-	@Ignore
+	@Ignore("Requires DB access to run")
 	@SuppressWarnings("ConstantConditions")
 	@Test
 	public void test() throws Exception {
@@ -130,7 +114,7 @@ public class CubePartitioningTest {
 		Path logsDir = temporaryFolder.newFolder().toPath();
 		AggregationStructure structure = getStructure(classLoader);
 
-		Configuration jooqConfiguration = getJooqConfiguration();
+		Configuration jooqConfiguration = getJooqConfiguration(DATABASE_PROPERTIES_PATH, DATABASE_DIALECT);
 		AggregationChunkStorage aggregationChunkStorage =
 				getAggregationChunkStorage(eventloop, executor, structure, aggregationsDir);
 		CubeMetadataStorageSql cubeMetadataStorageSql =

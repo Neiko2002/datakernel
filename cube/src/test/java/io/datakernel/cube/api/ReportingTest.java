@@ -19,40 +19,38 @@ package io.datakernel.cube.api;
 import com.google.common.collect.ImmutableMap;
 import io.datakernel.aggregation_db.*;
 import io.datakernel.aggregation_db.fieldtype.FieldType;
+import io.datakernel.aggregation_db.fieldtype.HyperLogLog;
 import io.datakernel.aggregation_db.keytype.KeyType;
 import io.datakernel.async.AsyncCallbacks;
 import io.datakernel.async.CompletionCallbackFuture;
 import io.datakernel.async.ResultCallback;
 import io.datakernel.async.RunnableWithException;
+import io.datakernel.codegen.Expression;
 import io.datakernel.codegen.utils.DefiningClassLoader;
-import io.datakernel.cube.Cube;
-import io.datakernel.cube.CubeMetadataStorage;
-import io.datakernel.cube.CubeMetadataStorageSql;
-import io.datakernel.cube.DrillDown;
+import io.datakernel.cube.*;
 import io.datakernel.dns.NativeDnsResolver;
 import io.datakernel.eventloop.Eventloop;
 import io.datakernel.eventloop.EventloopService;
-import io.datakernel.examples.LogItem;
-import io.datakernel.examples.LogItemSplitter;
 import io.datakernel.http.AsyncHttpClient;
 import io.datakernel.http.AsyncHttpServer;
 import io.datakernel.http.HttpUtils;
 import io.datakernel.logfs.LogManager;
 import io.datakernel.logfs.LogToCubeMetadataStorage;
 import io.datakernel.logfs.LogToCubeRunner;
+import io.datakernel.serializer.annotations.Serialize;
+import io.datakernel.stream.StreamDataReceiver;
 import io.datakernel.stream.StreamProducers;
+import io.datakernel.util.Function;
 import org.joda.time.LocalDate;
 import org.jooq.Configuration;
 import org.jooq.SQLDialect;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.rules.TemporaryFolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -60,15 +58,16 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Maps.newHashMap;
 import static com.google.common.collect.Sets.newHashSet;
-import static io.datakernel.aggregation_db.fieldtype.FieldTypes.doubleSum;
-import static io.datakernel.aggregation_db.fieldtype.FieldTypes.longSum;
+import static io.datakernel.aggregation_db.fieldtype.FieldTypes.*;
 import static io.datakernel.aggregation_db.keytype.KeyTypes.dateKey;
 import static io.datakernel.aggregation_db.keytype.KeyTypes.intKey;
+import static io.datakernel.codegen.Expressions.call;
+import static io.datakernel.codegen.Expressions.cast;
 import static io.datakernel.cube.CubeTestUtils.*;
-import static io.datakernel.cube.api.ReportingDSL.divide;
-import static io.datakernel.cube.api.ReportingDSL.percent;
+import static io.datakernel.cube.api.ReportingDSL.*;
 import static io.datakernel.dns.NativeDnsResolver.DEFAULT_DATAGRAM_SOCKET_SETTINGS;
 import static java.util.Arrays.asList;
 import static java.util.Collections.singleton;
@@ -76,6 +75,7 @@ import static java.util.Collections.singletonList;
 import static junit.framework.TestCase.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+@Ignore("Requires DB access to run")
 public class ReportingTest {
 	private static final Logger logger = LoggerFactory.getLogger(ReportingTest.class);
 
@@ -109,16 +109,36 @@ public class ReportingTest {
 			.put("clicks", longSum())
 			.put("conversions", longSum())
 			.put("revenue", doubleSum())
+			.put("eventCount", intCount())
+			.put("minRevenue", doubleMin())
+			.put("maxRevenue", doubleMax())
+			.put("uniqueUserIdsCount", hyperLogLog(1024))
 			.build();
 
 	private static final Map<String, ReportingDSLExpression> COMPUTED_MEASURES = ImmutableMap.<String, ReportingDSLExpression>builder()
 			.put("ctr", percent(divide("clicks", "impressions")))
+			.put("uniqueUserPercent", percent(divide(preprocess("uniqueUserIdsCount", new Function<Expression, Expression>() {
+				@Override
+				public Expression apply(Expression input) {
+					return call(cast(input, HyperLogLog.class), "estimate");
+				}
+			}), "eventCount")))
 			.build();
 
 	private static final Map<String, String> CHILD_PARENT_RELATIONSHIPS = ImmutableMap.<String, String>builder()
 			.put("campaign", "advertiser")
 			.put("banner", "campaign")
 			.build();
+
+	private static final Map<String, String> OUTPUT_TO_INPUT_FIELDS;
+
+	static {
+		OUTPUT_TO_INPUT_FIELDS = new HashMap<>();
+		OUTPUT_TO_INPUT_FIELDS.put("eventCount", null);
+		OUTPUT_TO_INPUT_FIELDS.put("minRevenue", "revenue");
+		OUTPUT_TO_INPUT_FIELDS.put("maxRevenue", "revenue");
+		OUTPUT_TO_INPUT_FIELDS.put("uniqueUserIdsCount", "userId");
+	}
 
 	private static AggregationStructure getStructure(DefiningClassLoader classLoader) {
 		return new AggregationStructure(classLoader, DIMENSIONS, MEASURES);
@@ -131,7 +151,10 @@ public class ReportingTest {
 		Cube cube = new Cube(eventloop, executorService, classLoader, cubeMetadataStorage, aggregationChunkStorage,
 				cubeStructure, Aggregation.DEFAULT_SORTER_ITEMS_IN_MEMORY, Aggregation.DEFAULT_SORTER_BLOCK_SIZE,
 				Aggregation.DEFAULT_AGGREGATION_CHUNK_SIZE);
-		cube.addAggregation("detailed", new AggregationMetadata(LogItem.DIMENSIONS, asList("impressions", "clicks", "conversions")));
+		Set<String> measures = newHashSet(MEASURES.keySet());
+		measures.remove("revenue");
+		cube.addAggregation("detailed", new AggregationMetadata(newArrayList(DIMENSIONS.keySet()),
+				newArrayList(measures)));
 		cube.setChildParentRelationships(CHILD_PARENT_RELATIONSHIPS);
 		return cube;
 	}
@@ -167,6 +190,83 @@ public class ReportingTest {
 		}
 	}
 
+	public static class LogItem {
+		/* Dimensions */
+		@Serialize(order = 0)
+		public int date;
+
+		@Serialize(order = 1)
+		public int advertiser;
+
+		@Serialize(order = 2)
+		public int campaign;
+
+		@Serialize(order = 3)
+		public int banner;
+
+		/* Measures */
+		@Serialize(order = 4)
+		public long impressions;
+
+		@Serialize(order = 5)
+		public long clicks;
+
+		@Serialize(order = 6)
+		public long conversions;
+
+		@Serialize(order = 7)
+		public double revenue;
+
+		@Serialize(order = 8)
+		public int userId;
+
+		public LogItem() {
+		}
+
+		public LogItem(int date, int advertiser, int campaign, int banner,
+		               long impressions, long clicks, long conversions, double revenue, int userId) {
+			this.date = date;
+			this.advertiser = advertiser;
+			this.campaign = campaign;
+			this.banner = banner;
+			this.impressions = impressions;
+			this.clicks = clicks;
+			this.conversions = conversions;
+			this.revenue = revenue;
+			this.userId = userId;
+		}
+	}
+
+	public static class LogItemSplitter extends AggregatorSplitter<LogItem> {
+		private static final AggregatorSplitter.Factory<LogItem> FACTORY = new AggregatorSplitter.Factory<LogItem>() {
+			@Override
+			public AggregatorSplitter<LogItem> create(Eventloop eventloop) {
+				return new LogItemSplitter(eventloop);
+			}
+		};
+
+		public LogItemSplitter(Eventloop eventloop) {
+			super(eventloop);
+		}
+
+		public static Factory<LogItem> factory() {
+			return FACTORY;
+		}
+
+		private StreamDataReceiver<LogItem> logItemAggregator;
+
+		@Override
+		protected void addOutputs() {
+			logItemAggregator = addOutput(LogItem.class, newArrayList(DIMENSIONS.keySet()),
+					newArrayList(MEASURES.keySet()), OUTPUT_TO_INPUT_FIELDS);
+		}
+
+		@Override
+		protected void processItem(LogItem item) {
+			logItemAggregator.onData(item);
+		}
+	}
+
 	@Before
 	public void setUp() throws Exception {
 		ExecutorService executor = Executors.newCachedThreadPool();
@@ -191,9 +291,10 @@ public class ReportingTest {
 				LogItemSplitter.factory(), LOG_NAME, LOG_PARTITIONS, logToCubeMetadataStorage);
 		cube.setReportingConfiguration(reportingConfiguration);
 
-		List<LogItem> logItems = asList(new LogItem(0, 1, 1, 1, 10, 1, 1, 0.0), new LogItem(1, 1, 1, 1, 20, 3, 1, 0.0),
-				new LogItem(2, 1, 1, 1, 15, 2, 0, 0.0), new LogItem(3, 1, 1, 1, 30, 5, 2, 0.0),
-				new LogItem(1, 2, 2, 2, 100, 5, 0, 0.0), new LogItem(1, 3, 3, 3, 80, 5, 0, 0.0));
+		List<LogItem> logItems = asList(new LogItem(0, 1, 1, 1, 10, 1, 1, 0.14, 1),
+				new LogItem(1, 1, 1, 1, 20, 3, 1, 0.12, 2), new LogItem(2, 1, 1, 1, 15, 2, 0, 0.22, 1),
+				new LogItem(3, 1, 1, 1, 30, 5, 2, 0.30, 3), new LogItem(1, 2, 2, 2, 100, 5, 0, 0.36, 10),
+				new LogItem(1, 3, 3, 3, 80, 5, 0, 0.60, 1));
 		StreamProducers.OfIterator<LogItem> producerOfRandomLogItems =
 				new StreamProducers.OfIterator<>(eventloop, logItems.iterator());
 		producerOfRandomLogItems.streamTo(logManager.consumer(LOG_PARTITION_NAME));
@@ -258,12 +359,14 @@ public class ReportingTest {
 		assertEquals(6, records.get(0).size());
 		assertEquals(2, ((Number) records.get(0).get("date")).intValue());
 		assertEquals(1, ((Number) records.get(0).get("advertiser")).intValue());
+		assertEquals(2, ((Number) records.get(0).get("clicks")).intValue());
 		assertEquals(15, ((Number) records.get(0).get("impressions")).intValue());
-		assertEquals(13.333, ((Number) records.get(0).get("ctr")).doubleValue(), 1E-3);
+		assertEquals(2.0 / 15.0 * 100.0, ((Number) records.get(0).get("ctr")).doubleValue(), 1E-3);
 		assertEquals(1, ((Number) records.get(1).get("date")).intValue());
 		assertEquals(1, ((Number) records.get(1).get("advertiser")).intValue());
+		assertEquals(3, ((Number) records.get(1).get("clicks")).intValue());
 		assertEquals(20, ((Number) records.get(1).get("impressions")).intValue());
-		assertEquals(15, ((Number) records.get(1).get("ctr")).doubleValue(), 1E-3);
+		assertEquals(3.0 / 20.0 * 100.0, ((Number) records.get(1).get("ctr")).doubleValue(), 1E-3);
 		assertEquals(2, queryResult[0].getCount());
 		assertEquals(newHashSet("impressions", "clicks", "ctr"), newHashSet(queryResult[0].getMeasures()));
 		assertEquals(newHashSet("date", "advertiser", "campaign"), newHashSet(queryResult[0].getDimensions()));
@@ -273,7 +376,7 @@ public class ReportingTest {
 		Map<String, Object> totals = queryResult[0].getTotals();
 		assertEquals(35, ((Number) totals.get("impressions")).intValue());
 		assertEquals(5, ((Number) totals.get("clicks")).intValue());
-		assertEquals(14.285, ((Number) totals.get("ctr")).doubleValue(), 1E-3);
+		assertEquals(5.0 / 35.0 * 100.0, ((Number) totals.get("ctr")).doubleValue(), 1E-3);
 	}
 
 	@Test
@@ -382,6 +485,68 @@ public class ReportingTest {
 		assertEquals(2, ((Number) records.get(1).get("advertiser")).intValue());
 		assertEquals("second", records.get(1).get("advertiserName"));
 		assertEquals(singletonList("clicks"), queryResult[0].getMeasures());
+	}
+
+	@Test
+	public void testCustomMeasures() throws Exception {
+		ReportingQuery query = new ReportingQuery()
+				.dimensions("advertiser")
+				.measures("eventCount", "minRevenue", "maxRevenue", "uniqueUserIdsCount", "uniqueUserPercent")
+				.sort(AggregationQuery.Ordering.asc("uniqueUserIdsCount"), AggregationQuery.Ordering.asc("advertiser"));
+
+		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];
+		startBlocking(httpClient);
+		cubeHttpClient.query(query, new ResultCallback<ReportingQueryResult>() {
+			@Override
+			public void onResult(ReportingQueryResult result) {
+				queryResult[0] = result;
+				stopBlocking(httpClient);
+			}
+
+			@Override
+			public void onException(Exception exception) {
+				logger.error("Query failed", exception);
+			}
+		});
+
+		clientEventloop.run();
+
+		List<Map<String, Object>> records = queryResult[0].getRecords();
+		assertEquals(newHashSet("eventCount", "minRevenue", "maxRevenue", "uniqueUserIdsCount", "uniqueUserPercent"),
+				newHashSet(queryResult[0].getMeasures()));
+		assertEquals(asList("uniqueUserIdsCount", "advertiser"), queryResult[0].getSortedBy());
+		assertEquals(3, records.size());
+
+		Map<String, Object> r1 = records.get(0);
+		assertEquals(2, ((Number) r1.get("advertiser")).intValue());
+		assertEquals(0.36, ((Number) r1.get("minRevenue")).doubleValue(), 1E-3);
+		assertEquals(0.36, ((Number) r1.get("maxRevenue")).doubleValue(), 1E-3);
+		assertEquals(1, ((Number) r1.get("eventCount")).intValue());
+		assertEquals(1, ((Number) r1.get("uniqueUserIdsCount")).intValue());
+		assertEquals(100, ((Number) r1.get("uniqueUserPercent")).intValue());
+
+		Map<String, Object> r2 = records.get(1);
+		assertEquals(3, ((Number) r2.get("advertiser")).intValue());
+		assertEquals(0.60, ((Number) r2.get("minRevenue")).doubleValue(), 1E-3);
+		assertEquals(0.60, ((Number) r2.get("maxRevenue")).doubleValue(), 1E-3);
+		assertEquals(1, ((Number) r2.get("eventCount")).intValue());
+		assertEquals(1, ((Number) r2.get("uniqueUserIdsCount")).intValue());
+		assertEquals(100, ((Number) r2.get("uniqueUserPercent")).intValue());
+
+		Map<String, Object> r3 = records.get(2);
+		assertEquals(1, ((Number) r3.get("advertiser")).intValue());
+		assertEquals(0.12, ((Number) r3.get("minRevenue")).doubleValue(), 1E-3);
+		assertEquals(0.30, ((Number) r3.get("maxRevenue")).doubleValue(), 1E-3);
+		assertEquals(4, ((Number) r3.get("eventCount")).intValue());
+		assertEquals(3, ((Number) r3.get("uniqueUserIdsCount")).intValue());
+		assertEquals(3.0 / 4.0 * 100.0, ((Number) r3.get("uniqueUserPercent")).doubleValue());
+
+		Map<String, Object> totals = queryResult[0].getTotals();
+		assertEquals(0.12, ((Number) totals.get("minRevenue")).doubleValue(), 1E-3);
+		assertEquals(0.60, ((Number) totals.get("maxRevenue")).doubleValue(), 1E-3);
+		assertEquals(6, ((Number) totals.get("eventCount")).intValue());
+		assertEquals(4, ((Number) totals.get("uniqueUserIdsCount")).intValue());
+		assertEquals(4.0 / 6.0 * 100.0, ((Number) totals.get("uniqueUserPercent")).doubleValue(), 1E-3);
 	}
 
 	@After

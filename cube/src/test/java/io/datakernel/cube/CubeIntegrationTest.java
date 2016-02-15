@@ -96,7 +96,7 @@ public class CubeIntegrationTest {
 		return cube;
 	}
 
-	@Ignore
+	@Ignore("Requires DB access to run")
 	@SuppressWarnings("ConstantConditions")
 	@Test
 	public void test() throws Exception {
