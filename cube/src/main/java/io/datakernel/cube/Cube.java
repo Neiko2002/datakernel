@@ -30,6 +30,8 @@ import io.datakernel.async.CompletionCallback;
 import io.datakernel.async.ForwardingCompletionCallback;
 import io.datakernel.async.ForwardingResultCallback;
 import io.datakernel.async.ResultCallback;
+import io.datakernel.codegen.AsmBuilder;
+import io.datakernel.codegen.ExpressionComparator;
 import io.datakernel.codegen.utils.DefiningClassLoader;
 import io.datakernel.cube.api.AttributeResolver;
 import io.datakernel.cube.api.ReportingConfiguration;
@@ -55,6 +57,7 @@ import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.*;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Sets.newHashSet;
+import static io.datakernel.codegen.Expressions.*;
 import static java.util.Collections.sort;
 
 /**
@@ -300,14 +303,15 @@ public final class Cube implements ConcurrentJmxMBean {
 		return aggregationToAppliedPredicateKeys;
 	}
 
-	public AggregationQuery getQueryWithoutAppliedPredicateKeys(AggregationQuery query, List<String> appliedPredicateKeys) {
+	public CubeQuery getQueryWithoutAppliedPredicateKeys(CubeQuery query, List<String> appliedPredicateKeys) {
 		Map<String, AggregationQuery.Predicate> filteredQueryPredicates = new LinkedHashMap<>();
 		for (Map.Entry<String, AggregationQuery.Predicate> queryPredicateEntry : query.getPredicates().asMap().entrySet()) {
 			if (!appliedPredicateKeys.contains(queryPredicateEntry.getKey()))
 				filteredQueryPredicates.put(queryPredicateEntry.getKey(), queryPredicateEntry.getValue());
 		}
 
-		return new AggregationQuery(query.getResultKeys(), query.getResultFields(), AggregationQuery.Predicates.fromMap(filteredQueryPredicates), query.getOrderings());
+		return new CubeQuery(query.getResultDimensions(), query.getResultMeasures(),
+				AggregationQuery.Predicates.fromMap(filteredQueryPredicates), query.getOrderings());
 	}
 
 	/**
@@ -318,20 +322,20 @@ public final class Cube implements ConcurrentJmxMBean {
 	 * @param query       query
 	 * @return producer that streams query results
 	 */
-	public <T> StreamProducer<T> query(Class<T> resultClass, AggregationQuery query) {
+	public <T> StreamProducer<T> query(Class<T> resultClass, CubeQuery query) {
 		logger.trace("Started building StreamProducer for query.");
 
 		StreamReducer<Comparable, T, Object> streamReducer = new StreamReducer<>(eventloop, Ordering.natural());
 
-		Map<Aggregation, List<String>> aggregationsToAppliedPredicateKeys = findAggregationsForQuery(query);
+		Map<Aggregation, List<String>> aggregationsToAppliedPredicateKeys = findAggregationsForQuery(query.getAggregationQuery());
 
-		List<String> queryMeasures = newArrayList(query.getResultFields());
-		List<String> resultDimensions = query.getResultKeys();
+		List<String> queryMeasures = newArrayList(query.getResultMeasures());
+		List<String> resultDimensions = query.getResultDimensions();
 		Class resultKeyClass = structure.createKeyClass(resultDimensions);
 
 		for (Map.Entry<Aggregation, List<String>> entry : aggregationsToAppliedPredicateKeys.entrySet()) {
 			Aggregation aggregation = entry.getKey();
-			AggregationQuery filteredQuery = getQueryWithoutAppliedPredicateKeys(query, entry.getValue());
+			CubeQuery filteredQuery = getQueryWithoutAppliedPredicateKeys(query, entry.getValue());
 			if (queryMeasures.isEmpty())
 				break;
 			if (!aggregation.containsKeys(filteredQuery.getAllKeys()))
@@ -343,7 +347,8 @@ public final class Cube implements ConcurrentJmxMBean {
 
 			Class aggregationClass = structure.createRecordClass(aggregation.getKeys(), aggregationMeasures);
 
-			StreamProducer<T> queryResultProducer = aggregation.query(filteredQuery, aggregationMeasures, aggregationClass);
+			StreamProducer<T> queryResultProducer = aggregation.query(filteredQuery.getAggregationQuery(),
+					aggregationMeasures, aggregationClass);
 
 			Function keyFunction = structure.createKeyFunction(aggregationClass, resultKeyClass, resultDimensions);
 
@@ -363,7 +368,7 @@ public final class Cube implements ConcurrentJmxMBean {
 			throw new QueryException("Could not find suitable aggregation(s)");
 
 		final StreamProducer<T> orderedResultStream = getOrderedResultStream(query, resultClass, streamReducer,
-				query.getResultKeys(), query.getResultFields());
+				query.getResultDimensions(), query.getResultMeasures());
 
 		logger.trace("Finished building StreamProducer for query.");
 
@@ -491,11 +496,11 @@ public final class Cube implements ConcurrentJmxMBean {
 		return availableMeasures;
 	}
 
-	private <T> StreamProducer<T> getOrderedResultStream(AggregationQuery query, Class<T> resultClass,
+	private <T> StreamProducer<T> getOrderedResultStream(CubeQuery query, Class<T> resultClass,
 	                                                     StreamReducer<Comparable, T, Object> rawResultStream,
 	                                                     List<String> dimensions, List<String> measures) {
 		if (queryRequiresSorting(query)) {
-			Comparator fieldComparator = structure.createFieldComparator(query, resultClass);
+			Comparator fieldComparator = createFieldComparator(query, resultClass);
 			Path path = Paths.get("sorterStorage", "%d.part");
 			BufferSerializer bufferSerializer = structure.createBufferSerializer(resultClass, dimensions, measures);
 			StreamMergeSorterStorage sorterStorage = new StreamMergeSorterStorageImpl(eventloop, executorService,
@@ -509,9 +514,32 @@ public final class Cube implements ConcurrentJmxMBean {
 		}
 	}
 
-	private boolean queryRequiresSorting(AggregationQuery query) {
-		int orderings = query.getOrderings().size();
-		return orderings != 0;
+	public Comparator createFieldComparator(CubeQuery query, Class<?> fieldClass) {
+		logger.trace("Creating field comparator for query {}", query.toString());
+		AsmBuilder<Comparator> builder = new AsmBuilder<>(classLoader, Comparator.class);
+		ExpressionComparator comparator = comparator();
+		List<CubeQuery.Ordering> orderings = query.getOrderings();
+
+		for (CubeQuery.Ordering ordering : orderings) {
+			boolean isAsc = ordering.isAsc();
+			String field = ordering.getPropertyName();
+			if (isAsc)
+				comparator.add(
+						getter(cast(arg(0), fieldClass), field),
+						getter(cast(arg(1), fieldClass), field));
+			else
+				comparator.add(
+						getter(cast(arg(1), fieldClass), field),
+						getter(cast(arg(0), fieldClass), field));
+		}
+
+		builder.method("compare", comparator);
+
+		return builder.newInstance();
+	}
+
+	private boolean queryRequiresSorting(CubeQuery query) {
+		return query.getOrderings().size() != 0;
 	}
 
 	@Override

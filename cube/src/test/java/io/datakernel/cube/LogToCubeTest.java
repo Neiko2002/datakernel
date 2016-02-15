@@ -116,7 +116,7 @@ public class LogToCubeTest {
 		eventloop.run();
 
 		StreamConsumers.ToList<TestAdvResult> consumerToList = StreamConsumers.toList(eventloop);
-		cube.query(TestAdvResult.class, new AggregationQuery(asList("adv"), asList("advRequests")))
+		cube.query(TestAdvResult.class, new CubeQuery(asList("adv"), asList("advRequests")))
 				.streamTo(consumerToList);
 		eventloop.run();
 

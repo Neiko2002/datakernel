@@ -17,6 +17,7 @@
 package io.datakernel.cube.api;
 
 import io.datakernel.aggregation_db.AggregationQuery;
+import io.datakernel.cube.CubeQuery;
 
 import java.util.List;
 
@@ -27,7 +28,7 @@ public final class CubeHttpQuery {
 	private List<String> measures;
 	private List<String> attributes;
 	private AggregationQuery.Predicates filters;
-	private AggregationQuery.Ordering sort;
+	private CubeQuery.Ordering sort;
 	private Integer limit;
 	private Integer offset;
 
@@ -79,12 +80,12 @@ public final class CubeHttpQuery {
 		return filters;
 	}
 
-	public CubeHttpQuery sort(AggregationQuery.Ordering sort) {
+	public CubeHttpQuery sort(CubeQuery.Ordering sort) {
 		this.sort = sort;
 		return this;
 	}
 
-	public AggregationQuery.Ordering getSort() {
+	public CubeQuery.Ordering getSort() {
 		return sort;
 	}
 

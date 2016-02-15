@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.datakernel.cube.api2;
+package io.datakernel.cube.api;
 
 import com.google.common.base.MoreObjects;
 import io.datakernel.cube.DrillDown;

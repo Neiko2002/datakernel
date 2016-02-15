@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.datakernel.cube.api2;
+package io.datakernel.cube.api;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -25,15 +25,13 @@ import io.datakernel.aggregation_db.fieldtype.FieldType;
 import io.datakernel.aggregation_db.keytype.KeyType;
 import io.datakernel.codegen.utils.DefiningClassLoader;
 import io.datakernel.cube.DrillDown;
-import io.datakernel.cube.api.FieldGetter;
-import io.datakernel.cube.api.TotalsPlaceholder;
 import io.datakernel.http.HttpResponse;
 
 import java.util.List;
 import java.util.Set;
 
 import static io.datakernel.cube.api.CommonUtils.*;
-import static io.datakernel.cube.api2.HttpJsonConstants.*;
+import static io.datakernel.cube.api.HttpJsonConstants.*;
 
 public final class HttpResultProcessor implements ResultProcessor<HttpResponse> {
 	private final DefiningClassLoader classLoader;

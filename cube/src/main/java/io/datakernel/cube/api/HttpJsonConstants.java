@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.datakernel.cube.api2;
+package io.datakernel.cube.api;
 
 public final class HttpJsonConstants {
 	public static final String DIMENSIONS_PARAM = "dimensions";

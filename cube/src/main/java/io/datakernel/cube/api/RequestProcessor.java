@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.datakernel.cube.api2;
+package io.datakernel.cube.api;
 
 import io.datakernel.cube.api.ReportingQuery;
 import io.datakernel.util.Function;

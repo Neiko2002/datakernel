@@ -150,7 +150,7 @@ public class CubePartitioningTest {
 		Map<Long, AggregationChunk> chunks = cube.getAggregations().get("date").getChunks();
 		assertEquals(22, chunks.size());
 
-		AggregationQuery query = new AggregationQuery().keys("date").fields("clicks");
+		CubeQuery query = new CubeQuery().dimensions("date").measures("clicks");
 		StreamConsumers.ToList<LogItem> queryResultConsumer = new StreamConsumers.ToList<>(eventloop);
 		cube.query(LogItem.class, query).streamTo(queryResultConsumer);
 		eventloop.run();

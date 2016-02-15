@@ -20,16 +20,16 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import io.datakernel.aggregation_db.AggregationQuery;
 import io.datakernel.aggregation_db.AggregationStructure;
-import io.datakernel.aggregation_db.gson.QueryOrderingGsonSerializer;
 import io.datakernel.aggregation_db.gson.QueryPredicatesGsonSerializer;
 import io.datakernel.async.ResultCallback;
+import io.datakernel.cube.CubeQuery;
 import io.datakernel.http.*;
 
 import java.util.HashMap;
 import java.util.Map;
 
 import static io.datakernel.cube.api.CubeHttpServer.QUERY_REQUEST_PATH;
-import static io.datakernel.cube.api2.HttpJsonConstants.*;
+import static io.datakernel.cube.api.HttpJsonConstants.*;
 import static io.datakernel.util.ByteBufStrings.decodeUTF8;
 
 public final class CubeHttpClient {
@@ -46,7 +46,7 @@ public final class CubeHttpClient {
 		this.gson = new GsonBuilder()
 				.registerTypeAdapter(AggregationQuery.Predicates.class, new QueryPredicatesGsonSerializer(structure))
 				.registerTypeAdapter(ReportingQueryResult.class, new ReportingQueryResponseDeserializer(structure, reportingConfiguration))
-				.registerTypeAdapter(AggregationQuery.Ordering.class, new QueryOrderingGsonSerializer())
+				.registerTypeAdapter(CubeQuery.Ordering.class, new QueryOrderingGsonSerializer())
 				.create();
 	}
 

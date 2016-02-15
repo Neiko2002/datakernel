@@ -26,7 +26,7 @@ import java.lang.reflect.Type;
 import java.util.*;
 
 import static com.google.common.collect.Sets.newHashSet;
-import static io.datakernel.cube.api2.HttpJsonConstants.*;
+import static io.datakernel.cube.api.HttpJsonConstants.*;
 
 public class ReportingQueryResponseDeserializer implements JsonDeserializer<ReportingQueryResult> {
 	private final AggregationStructure structure;

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.datakernel.cube.api2;
+package io.datakernel.cube.api;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.Maps;
@@ -27,8 +27,8 @@ import io.datakernel.async.ResultCallback;
 import io.datakernel.codegen.*;
 import io.datakernel.codegen.utils.DefiningClassLoader;
 import io.datakernel.cube.Cube;
+import io.datakernel.cube.CubeQuery;
 import io.datakernel.cube.DrillDown;
-import io.datakernel.cube.api.*;
 import io.datakernel.eventloop.Eventloop;
 import io.datakernel.stream.StreamConsumers;
 import io.datakernel.stream.StreamProducer;
@@ -85,7 +85,7 @@ public final class RequestExecutor {
 
 		Set<DrillDown> drillDowns;
 
-		AggregationQuery query = new AggregationQuery();
+		CubeQuery query = new CubeQuery();
 
 		AggregationQuery.Predicates queryPredicates;
 		Map<String, AggregationQuery.Predicate> predicates;
@@ -101,8 +101,8 @@ public final class RequestExecutor {
 
 		List<String> attributes = newArrayList();
 
-		List<AggregationQuery.Ordering> queryOrderings;
-		List<AggregationQuery.Ordering> additionalOrderings = newArrayList();
+		List<CubeQuery.Ordering> queryOrderings;
+		List<CubeQuery.Ordering> additionalOrderings = newArrayList();
 		List<String> appliedOrderings = newArrayList();
 		boolean additionalSortingRequired;
 
@@ -133,8 +133,8 @@ public final class RequestExecutor {
 			processOrdering();
 
 			query
-					.keys(newArrayList(storedDimensions))
-					.fields(newArrayList(storedMeasures))
+					.dimensions(newArrayList(storedDimensions))
+					.measures(newArrayList(storedMeasures))
 					.predicates(newArrayList(predicates.values()));
 
 			resultClass = createResultClass();
@@ -261,13 +261,13 @@ public final class RequestExecutor {
 			if (queryOrderings == null)
 				return;
 
-			for (AggregationQuery.Ordering ordering : queryOrderings) {
+			for (CubeQuery.Ordering ordering : queryOrderings) {
 				String orderingField = ordering.getPropertyName();
 				additionalSortingRequired |= computedMeasures.contains(orderingField)
 						|| attributeTypes.containsKey(orderingField);
 			}
 
-			for (AggregationQuery.Ordering ordering : queryOrderings) {
+			for (CubeQuery.Ordering ordering : queryOrderings) {
 				String orderingField = ordering.getPropertyName();
 
 				if (predicates.get(orderingField) instanceof AggregationQuery.PredicateEq)
@@ -288,15 +288,15 @@ public final class RequestExecutor {
 
 		Class<QueryResultPlaceholder> createResultClass() {
 			AsmBuilder<QueryResultPlaceholder> builder = new AsmBuilder<>(classLoader, QueryResultPlaceholder.class);
-			List<String> resultKeys = query.getResultKeys();
-			List<String> resultFields = query.getResultFields();
-			for (String key : resultKeys) {
-				KeyType keyType = structure.getKeyType(key);
-				builder.field(key, keyType.getDataType());
+			List<String> resultDimensions = query.getResultDimensions();
+			List<String> resultMeasures = query.getResultMeasures();
+			for (String dimension : resultDimensions) {
+				KeyType keyType = structure.getKeyType(dimension);
+				builder.field(dimension, keyType.getDataType());
 			}
-			for (String field : resultFields) {
-				FieldType fieldType = structure.getFieldType(field);
-				builder.field(field, fieldType.getDataType());
+			for (String measure : resultMeasures) {
+				FieldType fieldType = structure.getFieldType(measure);
+				builder.field(measure, fieldType.getDataType());
 			}
 			for (Map.Entry<String, Class<?>> nameEntry : attributeTypes.entrySet()) {
 				builder.field(nameEntry.getKey(), nameEntry.getValue());
@@ -323,7 +323,7 @@ public final class RequestExecutor {
 			AsmBuilder<Comparator> builder = new AsmBuilder<>(classLoader, Comparator.class);
 			ExpressionComparatorNullable comparator = comparatorNullable();
 
-			for (AggregationQuery.Ordering ordering : additionalOrderings) {
+			for (CubeQuery.Ordering ordering : additionalOrderings) {
 				if (ordering.isAsc())
 					comparator.add(
 							getter(cast(arg(0), resultClass), ordering.getPropertyName()),

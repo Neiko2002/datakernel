@@ -137,9 +137,9 @@ public class CubeTest {
 
 		StreamConsumers.ToList<DataItemResult> consumerToList = StreamConsumers.toList(eventloop);
 		cube.query(DataItemResult.class,
-				new AggregationQuery()
-						.keys("key1", "key2")
-						.fields("metric1", "metric2", "metric3")
+				new CubeQuery()
+						.dimensions("key1", "key2")
+						.measures("metric1", "metric2", "metric3")
 						.eq("key1", 1)
 						.eq("key2", 3))
 				.streamTo(consumerToList);
@@ -230,9 +230,9 @@ public class CubeTest {
 
 		final EventloopService simpleFsServer2 = prepareServer(eventloop, serverStorage);
 		final StreamConsumers.ToList<DataItemResult> consumerToList = StreamConsumers.toList(eventloop);
-		final AggregationQuery query = new AggregationQuery()
-				.keys("key1", "key2")
-				.fields("metric1", "metric2", "metric3")
+		final CubeQuery query = new CubeQuery()
+				.dimensions("key1", "key2")
+				.measures("metric1", "metric2", "metric3")
 				.eq("key1", 1)
 				.eq("key2", 3);
 		StreamProducer<DataItemResult> queryResultProducer = cube.query(DataItemResult.class, query);
@@ -277,9 +277,9 @@ public class CubeTest {
 
 		StreamConsumers.ToList<DataItemResult> consumerToList = StreamConsumers.toList(eventloop);
 		cube.query(DataItemResult.class,
-				new AggregationQuery()
-						.keys("key1", "key2")
-						.fields("metric1", "metric2", "metric3")
+				new CubeQuery()
+						.dimensions("key1", "key2")
+						.measures("metric1", "metric2", "metric3")
 						.orderAsc("metric2")
 		).streamTo(consumerToList);
 		eventloop.run();
@@ -312,9 +312,9 @@ public class CubeTest {
 
 		StreamConsumers.ToList<DataItemResult> consumerToList = StreamConsumers.toList(eventloop);
 		cube.query(DataItemResult.class,
-				new AggregationQuery()
-						.keys("key1", "key2")
-						.fields("metric1", "metric2", "metric3")
+				new CubeQuery()
+						.dimensions("key1", "key2")
+						.measures("metric1", "metric2", "metric3")
 						.orderDesc("metric1")
 						.orderAsc("metric2")
 		).streamTo(consumerToList);
@@ -367,9 +367,9 @@ public class CubeTest {
 
 		StreamConsumers.ToList<DataItemResult> consumerToList = StreamConsumers.toList(eventloop);
 		cube.query(DataItemResult.class,
-				new AggregationQuery()
-						.keys("key1", "key2")
-						.fields("metric1", "metric2", "metric3")
+				new CubeQuery()
+						.dimensions("key1", "key2")
+						.measures("metric1", "metric2", "metric3")
 						.between("key1", 5, 10)
 						.between("key2", 40, 1000)
 		).streamTo(consumerToList);
@@ -417,9 +417,9 @@ public class CubeTest {
 
 		StreamConsumers.ToList<DataItemResult3> consumerToList = StreamConsumers.toList(eventloop);
 		cube.query(DataItemResult3.class,
-				new AggregationQuery()
-						.keys("key1", "key2", "key3", "key4", "key5")
-						.fields("metric1", "metric2", "metric3")
+				new CubeQuery()
+						.dimensions("key1", "key2", "key3", "key4", "key5")
+						.measures("metric1", "metric2", "metric3")
 						.eq("key1", 5)
 						.between("key2", 75, 99)
 						.between("key3", 35, 50)
@@ -454,9 +454,9 @@ public class CubeTest {
 
 		StreamConsumers.ToList<DataItemResult2> consumerToList = StreamConsumers.toList(eventloop);
 		cube.query(DataItemResult2.class,
-				new AggregationQuery()
-						.keys("key2")
-						.fields("metric1", "metric2", "metric3"))
+				new CubeQuery()
+						.dimensions("key2")
+						.measures("metric1", "metric2", "metric3"))
 				.streamTo(consumerToList);
 		// SELECT key1, SUM(metric1), SUM(metric2), SUM(metric3) FROM detailedAggregation WHERE key1 = 1 AND key2 = 3 GROUP BY key1
 		eventloop.run();
@@ -491,9 +491,9 @@ public class CubeTest {
 
 		StreamConsumers.ToList<DataItemResult> consumerToList = StreamConsumers.toList(eventloop);
 		cube.query(DataItemResult.class,
-				new AggregationQuery()
-						.keys("key1", "key2")
-						.fields("metric1", "metric2", "metric3")
+				new CubeQuery()
+						.dimensions("key1", "key2")
+						.measures("metric1", "metric2", "metric3")
 						.eq("key1", 1)
 						.eq("key2", 3))
 				.streamTo(consumerToList);
@@ -538,9 +538,9 @@ public class CubeTest {
 
 		StreamConsumers.ToList<DataItemResult> consumerToList = StreamConsumers.toList(eventloop);
 		cube.query(DataItemResult.class,
-				new AggregationQuery()
-						.keys("key1", "key2")
-						.fields("metric1", "metric2", "metric3")
+				new CubeQuery()
+						.dimensions("key1", "key2")
+						.measures("metric1", "metric2", "metric3")
 						.eq("key1", 1)
 						.eq("key2", 4))
 				.streamTo(consumerToList);

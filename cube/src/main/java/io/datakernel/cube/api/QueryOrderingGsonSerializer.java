@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-package io.datakernel.aggregation_db.gson;
+package io.datakernel.cube.api;
 
 import com.google.gson.*;
-import io.datakernel.aggregation_db.AggregationQuery;
 import io.datakernel.aggregation_db.api.QueryException;
+import io.datakernel.cube.CubeQuery;
 
 import java.lang.reflect.Type;
 
-public final class QueryOrderingGsonSerializer implements JsonSerializer<AggregationQuery.Ordering>,
-		JsonDeserializer<AggregationQuery.Ordering> {
+public final class QueryOrderingGsonSerializer implements JsonSerializer<CubeQuery.Ordering>,
+		JsonDeserializer<CubeQuery.Ordering> {
 	@Override
-	public AggregationQuery.Ordering deserialize(JsonElement json, Type type, JsonDeserializationContext ctx)
+	public CubeQuery.Ordering deserialize(JsonElement json, Type type, JsonDeserializationContext ctx)
 			throws JsonParseException {
 		if (!(json instanceof JsonObject))
 			throw new QueryException("Incorrect sort format. Should be represented as a JSON object");
@@ -36,16 +36,16 @@ public final class QueryOrderingGsonSerializer implements JsonSerializer<Aggrega
 		String direction = orderingJson.get("direction").getAsString();
 
 		if (direction.equals("asc"))
-			return AggregationQuery.Ordering.asc(orderingField);
+			return CubeQuery.Ordering.asc(orderingField);
 
 		if (direction.equals("desc"))
-			return AggregationQuery.Ordering.desc(orderingField);
+			return CubeQuery.Ordering.desc(orderingField);
 
 		throw new QueryException("Unknown 'direction' property value in sort object. Should be either 'asc' or 'desc'");
 	}
 
 	@Override
-	public JsonElement serialize(AggregationQuery.Ordering ordering, Type type, JsonSerializationContext ctx) {
+	public JsonElement serialize(CubeQuery.Ordering ordering, Type type, JsonSerializationContext ctx) {
 		JsonObject orderingJson = new JsonObject();
 		orderingJson.addProperty("field", ordering.getPropertyName());
 		orderingJson.addProperty("direction", ordering.isAsc() ? "asc" : "desc");

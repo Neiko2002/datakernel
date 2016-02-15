@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package io.datakernel.cube.api2;
+package io.datakernel.cube.api;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonParseException;
@@ -22,8 +22,6 @@ import io.datakernel.aggregation_db.api.QueryException;
 import io.datakernel.async.ResultCallback;
 import io.datakernel.codegen.utils.DefiningClassLoader;
 import io.datakernel.cube.Cube;
-import io.datakernel.cube.api.ReportingQuery;
-import io.datakernel.cube.api.Resolver;
 import io.datakernel.eventloop.Eventloop;
 import io.datakernel.http.HttpRequest;
 import io.datakernel.http.HttpResponse;

@@ -111,30 +111,6 @@ public class AggregationStructure {
 		return builder.defineClass();
 	}
 
-	public Comparator createFieldComparator(AggregationQuery query, Class<?> fieldClass) {
-		logger.trace("Creating field comparator for query {}", query.toString());
-		AsmBuilder<Comparator> builder = new AsmBuilder<>(classLoader, Comparator.class);
-		ExpressionComparator comparator = comparator();
-		List<AggregationQuery.Ordering> orderings = query.getOrderings();
-
-		for (AggregationQuery.Ordering ordering : orderings) {
-			boolean isAsc = ordering.isAsc();
-			String field = ordering.getPropertyName();
-			if (isAsc)
-				comparator.add(
-						getter(cast(arg(0), fieldClass), field),
-						getter(cast(arg(1), fieldClass), field));
-			else
-				comparator.add(
-						getter(cast(arg(1), fieldClass), field),
-						getter(cast(arg(0), fieldClass), field));
-		}
-
-		builder.method("compare", comparator);
-
-		return builder.newInstance();
-	}
-
 	public Comparator createKeyComparator(Class<?> recordClass, List<String> keys) {
 		AsmBuilder<Comparator> builder = new AsmBuilder<>(classLoader, Comparator.class);
 		ExpressionComparator comparator = comparator();

@@ -333,8 +333,8 @@ public class ReportingTest {
 				.filters(new AggregationQuery.Predicates()
 						.eq("banner", 1)
 						.between("date", 1, 2))
-				.sort(AggregationQuery.Ordering.asc("campaign"), AggregationQuery.Ordering.asc("ctr"),
-						AggregationQuery.Ordering.desc("banner"))
+				.sort(CubeQuery.Ordering.asc("campaign"), CubeQuery.Ordering.asc("ctr"),
+						CubeQuery.Ordering.desc("banner"))
 				.metadataFields("dimensions", "measures", "attributes", "drillDowns", "sortedBy");
 
 		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];
@@ -492,7 +492,7 @@ public class ReportingTest {
 		ReportingQuery query = new ReportingQuery()
 				.dimensions("advertiser")
 				.measures("eventCount", "minRevenue", "maxRevenue", "uniqueUserIdsCount", "uniqueUserPercent")
-				.sort(AggregationQuery.Ordering.asc("uniqueUserIdsCount"), AggregationQuery.Ordering.asc("advertiser"));
+				.sort(CubeQuery.Ordering.asc("uniqueUserIdsCount"), CubeQuery.Ordering.asc("advertiser"));
 
 		final ReportingQueryResult[] queryResult = new ReportingQueryResult[1];
 		startBlocking(httpClient);

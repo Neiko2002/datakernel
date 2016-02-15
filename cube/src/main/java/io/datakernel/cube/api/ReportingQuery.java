@@ -18,6 +18,7 @@ package io.datakernel.cube.api;
 
 import com.google.common.base.MoreObjects;
 import io.datakernel.aggregation_db.AggregationQuery;
+import io.datakernel.cube.CubeQuery;
 
 import java.util.List;
 import java.util.Set;
@@ -30,7 +31,7 @@ public final class ReportingQuery {
 	private List<String> measures;
 	private List<String> attributes;
 	private AggregationQuery.Predicates filters;
-	private List<AggregationQuery.Ordering> sort;
+	private List<CubeQuery.Ordering> sort;
 	private Integer limit;
 	private Integer offset;
 	private String searchString;
@@ -41,7 +42,7 @@ public final class ReportingQuery {
 	}
 
 	public ReportingQuery(List<String> dimensions, List<String> measures, List<String> attributes,
-	                      AggregationQuery.Predicates filters, List<AggregationQuery.Ordering> sort,
+	                      AggregationQuery.Predicates filters, List<CubeQuery.Ordering> sort,
 	                      Integer limit, Integer offset, String searchString, Set<String> fields,
 	                      Set<String> metadataFields) {
 		this.dimensions = dimensions;
@@ -104,16 +105,16 @@ public final class ReportingQuery {
 		return filters;
 	}
 
-	public ReportingQuery sort(List<AggregationQuery.Ordering> sort) {
+	public ReportingQuery sort(List<CubeQuery.Ordering> sort) {
 		this.sort = sort;
 		return this;
 	}
 
-	public ReportingQuery sort(AggregationQuery.Ordering... sort) {
+	public ReportingQuery sort(CubeQuery.Ordering... sort) {
 		return sort(asList(sort));
 	}
 
-	public List<AggregationQuery.Ordering> getSort() {
+	public List<CubeQuery.Ordering> getSort() {
 		return sort;
 	}
 

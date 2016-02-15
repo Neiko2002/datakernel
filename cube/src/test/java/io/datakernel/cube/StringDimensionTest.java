@@ -79,9 +79,9 @@ public class StringDimensionTest {
 
 		StreamConsumers.ToList<DataItemResultString> consumerToList = StreamConsumers.toList(eventloop);
 		cube.query(DataItemResultString.class,
-				new AggregationQuery()
-						.keys("key1", "key2")
-						.fields("metric1", "metric2", "metric3")
+				new CubeQuery()
+						.dimensions("key1", "key2")
+						.measures("metric1", "metric2", "metric3")
 						.eq("key1", "str2")
 						.eq("key2", 3))
 				.streamTo(consumerToList);

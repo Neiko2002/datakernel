@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
-package io.datakernel.cube.api2;
+package io.datakernel.cube.api;
 
 
 import com.google.common.base.Function;
-
-import java.util.List;
 
 public interface ResultProcessor<O> extends Function<QueryResult, O> {
 

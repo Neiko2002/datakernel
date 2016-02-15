@@ -197,7 +197,7 @@ public class CubeMeasureRemovalTest {
 		aggregateToMap(map, listOfRandomLogItems);
 		aggregateToMap(map, listOfRandomLogItems2);
 
-		AggregationQuery query = new AggregationQuery().keys("date").fields("clicks");
+		CubeQuery query = new CubeQuery().dimensions("date").measures("clicks");
 		StreamConsumers.ToList<LogItem> queryResultConsumer = new StreamConsumers.ToList<>(eventloop);
 		cube.query(LogItem.class, query).streamTo(queryResultConsumer);
 		eventloop.run();
@@ -230,7 +230,7 @@ public class CubeMeasureRemovalTest {
 
 
 		// Query
-		query = new AggregationQuery().keys("date").fields("clicks");
+		query = new CubeQuery().dimensions("date").measures("clicks");
 		queryResultConsumer = new StreamConsumers.ToList<>(eventloop);
 		cube.query(LogItem.class, query).streamTo(queryResultConsumer);
 		eventloop.run();
