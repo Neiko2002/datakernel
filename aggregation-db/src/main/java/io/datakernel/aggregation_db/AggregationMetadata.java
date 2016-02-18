@@ -312,24 +312,35 @@ public class AggregationMetadata {
 		return true;
 	}
 
-	/* BETWEEN predicate optimization is currently disabled */
+	// with various optimizations (like BETWEEN optimization)
+	@SuppressWarnings("unchecked")
+	public List<AggregationChunk> findChunks(AggregationStructure structure, AggregationQuery.Predicates predicates,
+	                                         List<String> fields) {
+		final Set<String> requestedFields = newHashSet(fields);
+		List<AggregationQuery.Predicate> prefixPredicates = getPrefixPredicates(predicates);
+		List<AggregationQuery.Predicate> betweenPredicates = newArrayList(filter(prefixPredicates,
+				isBetweenPredicate()));
+		boolean containsBetweenPredicates = betweenPredicates.size() > 0;
 
-//	public List<AggregationChunk> queryByPredicates(AggregationStructure structure, final Map<Long, AggregationChunk> chunks,
-//	                                                QueryPredicates predicates) {
-//		List<QueryPredicate> prefixPredicates = getPrefixPredicates(predicates);
-//		List<QueryPredicate> betweenPredicates = newArrayList(filter(prefixPredicates,
-//				isBetweenPredicate()));
-//		boolean containsBetweenPredicates = betweenPredicates.size() > 0;
-//
-//		if (!containsBetweenPredicates) {
-//			return queryByEqualsPredicates(chunks, predicates);
-//		} else if (shouldConvertBetweenPredicatesToEqualsQueries(betweenPredicates, structure)) {
-//			return queryByConvertingBetweenPredicatesToEqualsQueries(structure, prefixPredicates, chunks);
-//		} else {
-//			return queryByFilteringListOfChunks(predicates);
-//		}
-//	}
+		List<AggregationChunk> chunks;
 
+		if (!containsBetweenPredicates) {
+			chunks = queryByEqualsPredicates(predicates);
+		} else if (shouldConvertBetweenPredicatesToEqualsQueries(betweenPredicates, structure)) {
+			chunks = queryByConvertingBetweenPredicatesToEqualsQueries(structure, prefixPredicates);
+		} else {
+			chunks = queryByFilteringListOfChunks(predicates);
+		}
+
+		return newArrayList(filter(chunks, new Predicate<AggregationChunk>() {
+			@Override
+			public boolean apply(AggregationChunk chunk) {
+				return !intersection(newHashSet(chunk.getFields()), requestedFields).isEmpty();
+			}
+		}));
+	}
+
+	// without optimizations
 	public List<AggregationChunk> findChunks(List<String> fields, AggregationQuery.Predicates predicates) {
 		final Set<String> requestedFields = newHashSet(fields);
 		List<AggregationChunk> chunks = queryByFilteringListOfChunks(predicates);
@@ -392,21 +403,19 @@ public class AggregationMetadata {
 	}
 
 	/* BETWEEN predicate optimization */
-	private List<AggregationChunk> queryByEqualsPredicates(Map<Long, AggregationChunk> chunks,
-	                                                       AggregationQuery.Predicates predicates) {
+	private List<AggregationChunk> queryByEqualsPredicates(AggregationQuery.Predicates predicates) {
 		final PrimaryKey minQueryKey = rangeScanMinPrimaryKeyPrefix(predicates);
 		final PrimaryKey maxQueryKey = rangeScanMaxPrimaryKeyPrefix(predicates);
-		return rangeQuery(chunks, minQueryKey, maxQueryKey);
+		return rangeQuery(minQueryKey, maxQueryKey);
 	}
 
 	private List<AggregationChunk> queryByConvertingBetweenPredicatesToEqualsQueries(AggregationStructure structure,
-	                                                                                 List<AggregationQuery.Predicate> predicates,
-	                                                                                 Map<Long, AggregationChunk> chunks) {
+	                                                                                 List<AggregationQuery.Predicate> predicates) {
 		List<PrimaryKey> equalsKeys = primaryKeysForEqualsQueries(structure, predicates);
 		Set<AggregationChunk> resultChunks = newHashSet();
 
 		for (PrimaryKey queryKey : equalsKeys) {
-			resultChunks.addAll(rangeQuery(chunks, queryKey, queryKey));
+			resultChunks.addAll(rangeQuery(queryKey, queryKey));
 		}
 
 		return new ArrayList<>(resultChunks);
@@ -540,8 +549,7 @@ public class AggregationMetadata {
 		return true;
 	}
 
-	private List<AggregationChunk> rangeQuery(Map<Long, AggregationChunk> chunks,
-	                                          PrimaryKey minPrimaryKey, PrimaryKey maxPrimaryKey) {
+	private List<AggregationChunk> rangeQuery(PrimaryKey minPrimaryKey, PrimaryKey maxPrimaryKey) {
 		checkArgument(minPrimaryKey.size() == maxPrimaryKey.size());
 		int size = minPrimaryKey.size();
 		RangeTree<PrimaryKey, AggregationChunk> index = prefixRanges[size];

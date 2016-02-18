@@ -310,7 +310,7 @@ public class Aggregation {
 
 		List<String> aggregationFields = getAggregationFieldsForQuery(fields);
 
-		List<AggregationChunk> allChunks = aggregationMetadata.findChunks(aggregationFields, query.getPredicates());
+		List<AggregationChunk> allChunks = aggregationMetadata.findChunks(structure, query.getPredicates(), aggregationFields);
 
 		AggregationQueryPlan queryPlan = new AggregationQueryPlan();
 
