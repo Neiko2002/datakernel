@@ -17,6 +17,7 @@
 package io.datakernel.cube.api;
 
 import com.google.common.base.Predicate;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import io.datakernel.aggregation_db.AggregationQuery;
 import io.datakernel.aggregation_db.AggregationStructure;
@@ -38,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 import static com.google.common.base.Predicates.in;
+import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.*;
 import static com.google.common.collect.Lists.newArrayList;
 import static com.google.common.collect.Maps.newHashMap;
@@ -352,7 +354,7 @@ public final class RequestExecutor {
 
 			computeMeasures(results);
 			resolver.resolve((List) results, resultClass, attributeTypes, resolverKeys, keyConstants);
-			results = performSearch(results);
+			performSearch(results);
 			sort(results);
 			TotalsPlaceholder totalsPlaceholder = computeTotals(results);
 
@@ -380,14 +382,14 @@ public final class RequestExecutor {
 					metadataFields);
 		}
 
-		List performSearch(List results) {
+		void performSearch(List results) {
 			if (searchString == null)
-				return results;
+				return;
 
 			Predicate searchPredicate = createSearchPredicate(searchString, concat(storedDimensions, attributes),
 					resultClass);
 
-			return newArrayList(filter(results, searchPredicate));
+			Iterables.removeIf(results, not(searchPredicate));
 		}
 
 		List applyLimitAndOffset(List results) {

@@ -203,4 +203,14 @@ public final class CubeQuery {
 	public AggregationQuery getAggregationQuery() {
 		return aggregationQuery;
 	}
+
+	@Override
+	public String toString() {
+		return "CubeQuery{" +
+				"keys=" + aggregationQuery.getResultKeys() +
+				", fields=" + aggregationQuery.getResultFields() +
+				", predicates=" + aggregationQuery.getPredicates() +
+				", orderings=" + orderings +
+				'}';
+	}
 }
