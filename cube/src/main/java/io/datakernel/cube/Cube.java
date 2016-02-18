@@ -333,6 +333,8 @@ public final class Cube implements ConcurrentJmxMBean {
 		List<String> resultDimensions = query.getResultDimensions();
 		Class resultKeyClass = structure.createKeyClass(resultDimensions);
 
+		CubeQueryPlan queryPlan = new CubeQueryPlan();
+
 		for (Map.Entry<Aggregation, List<String>> entry : aggregationsToAppliedPredicateKeys.entrySet()) {
 			Aggregation aggregation = entry.getKey();
 			CubeQuery filteredQuery = getQueryWithoutAppliedPredicateKeys(query, entry.getValue());
@@ -341,6 +343,7 @@ public final class Cube implements ConcurrentJmxMBean {
 			if (!aggregation.containsKeys(filteredQuery.getAllKeys()))
 				continue;
 			List<String> aggregationMeasures = aggregation.getAggregationFieldsForQuery(queryMeasures);
+			queryPlan.addAggregationMeasures(aggregation, aggregationMeasures);
 
 			if (aggregationMeasures.isEmpty())
 				continue;
@@ -359,13 +362,14 @@ public final class Cube implements ConcurrentJmxMBean {
 
 			queryResultProducer.streamTo(streamReducerInput);
 
-			logger.info("Streaming query {} result from aggregation '{}'", filteredQuery, aggregation);
-
 			queryMeasures = newArrayList(filter(queryMeasures, not(in(aggregation.getFields()))));
 		}
 
-		if (!queryMeasures.isEmpty())
+		if (!queryMeasures.isEmpty()) {
+			logger.info("Could not build query plan for {}. Incomplete plan: {}", query, queryPlan);
 			throw new QueryException("Could not find suitable aggregation(s)");
+		} else
+			logger.info("Built query plan for {}: {}", query, queryPlan);
 
 		final StreamProducer<T> orderedResultStream = getOrderedResultStream(query, resultClass, streamReducer,
 				query.getResultDimensions(), query.getResultMeasures());

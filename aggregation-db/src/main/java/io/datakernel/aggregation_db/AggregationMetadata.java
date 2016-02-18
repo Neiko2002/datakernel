@@ -30,6 +30,8 @@ import static com.google.common.base.Predicates.in;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.Iterables.*;
 import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Sets.intersection;
+import static com.google.common.collect.Sets.newHashSet;
 
 /**
  * Represents aggregation metadata. Stores chunks in an index (represented by an array of {@link RangeTree}) for efficient search.
@@ -328,9 +330,15 @@ public class AggregationMetadata {
 //		}
 //	}
 
-	public List<AggregationChunk> queryByPredicates(AggregationStructure structure, final Map<Long, AggregationChunk> chunks,
-	                                                AggregationQuery.Predicates predicates) {
-		return queryByFilteringListOfChunks(predicates);
+	public List<AggregationChunk> findChunks(List<String> fields, AggregationQuery.Predicates predicates) {
+		final Set<String> requestedFields = newHashSet(fields);
+		List<AggregationChunk> chunks = queryByFilteringListOfChunks(predicates);
+		return newArrayList(filter(chunks, new Predicate<AggregationChunk>() {
+			@Override
+			public boolean apply(AggregationChunk chunk) {
+				return !intersection(newHashSet(chunk.getFields()), requestedFields).isEmpty();
+			}
+		}));
 	}
 
 	private List<AggregationChunk> queryByFilteringListOfChunks(AggregationQuery.Predicates predicates) {
@@ -395,7 +403,7 @@ public class AggregationMetadata {
 	                                                                                 List<AggregationQuery.Predicate> predicates,
 	                                                                                 Map<Long, AggregationChunk> chunks) {
 		List<PrimaryKey> equalsKeys = primaryKeysForEqualsQueries(structure, predicates);
-		Set<AggregationChunk> resultChunks = Sets.newHashSet();
+		Set<AggregationChunk> resultChunks = newHashSet();
 
 		for (PrimaryKey queryKey : equalsKeys) {
 			resultChunks.addAll(rangeQuery(chunks, queryKey, queryKey));

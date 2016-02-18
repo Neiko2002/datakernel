@@ -23,10 +23,7 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.Ordering;
 import io.datakernel.aggregation_db.AggregationMetadataStorage.LoadedChunks;
 import io.datakernel.aggregation_db.processor.ProcessorFactory;
-import io.datakernel.async.CompletionCallback;
-import io.datakernel.async.ForwardingCompletionCallback;
-import io.datakernel.async.ForwardingResultCallback;
-import io.datakernel.async.ResultCallback;
+import io.datakernel.async.*;
 import io.datakernel.codegen.AsmBuilder;
 import io.datakernel.codegen.PredicateDefAnd;
 import io.datakernel.codegen.utils.DefiningClassLoader;
@@ -49,6 +46,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.in;
 import static com.google.common.collect.Iterables.*;
 import static com.google.common.collect.Lists.newArrayList;
+import static com.google.common.collect.Sets.intersection;
+import static com.google.common.collect.Sets.newHashSet;
+import static com.google.common.collect.Sets.newLinkedHashSet;
 import static io.datakernel.codegen.Expressions.*;
 import static java.util.Arrays.asList;
 
@@ -310,10 +310,12 @@ public class Aggregation {
 
 		List<String> aggregationFields = getAggregationFieldsForQuery(fields);
 
-		List<AggregationChunk> allChunks = aggregationMetadata.queryByPredicates(structure, chunks, query.getPredicates());
+		List<AggregationChunk> allChunks = aggregationMetadata.findChunks(aggregationFields, query.getPredicates());
+
+		AggregationQueryPlan queryPlan = new AggregationQueryPlan();
 
 		StreamProducer streamProducer = consolidatedProducer(query.getAllKeys(), aggregationFields,
-				outputClass, query.getPredicates(), allChunks);
+				outputClass, query.getPredicates(), allChunks, queryPlan);
 
 		StreamProducer queryResultProducer = streamProducer;
 
@@ -329,6 +331,7 @@ public class Aggregation {
 			StreamFilter streamFilter = new StreamFilter<>(eventloop, createNotEqualsPredicate(outputClass, notEqualsPredicates));
 			streamProducer.streamTo(streamFilter.getInput());
 			queryResultProducer = streamFilter.getOutput();
+			queryPlan.setPostFiltering(true);
 		}
 
 		if (sortingRequired(resultKeys, getKeys())) {
@@ -341,7 +344,10 @@ public class Aggregation {
 					sorterItemsInMemory);
 			queryResultProducer.streamTo(sorter.getInput());
 			queryResultProducer = sorter.getOutput();
+			queryPlan.setAdditionalSorting(true);
 		}
+
+		logger.info("Query plan for {} in aggregation {}: {}", query, this, queryPlan);
 
 		return queryResultProducer;
 	}
@@ -395,14 +401,16 @@ public class Aggregation {
 
 		PartitioningStrategy partitioningStrategy = createPartitioningStrategy(resultClass);
 
-		consolidatedProducer(getKeys(), fields, resultClass, null, chunksToConsolidate)
+		consolidatedProducer(getKeys(), fields, resultClass, null, chunksToConsolidate, null)
 				.streamTo(createChunker(partitioningStrategy, eventloop, getKeys(), fields, resultClass,
 						aggregationChunkStorage, metadataStorage, aggregationChunkSize, callback));
 	}
 
 	private <T> StreamProducer<T> consolidatedProducer(List<String> keys, List<String> fields, Class<T> resultClass,
 	                                                   AggregationQuery.Predicates predicates,
-	                                                   List<AggregationChunk> individualChunks) {
+	                                                   List<AggregationChunk> individualChunks,
+	                                                   AggregationQueryPlan queryPlan) {
+		Set<String> fieldsSet = newHashSet(fields);
 		individualChunks = newArrayList(individualChunks);
 		Collections.sort(individualChunks, new Comparator<AggregationChunk>() {
 			@Override
@@ -425,16 +433,24 @@ public class Aggregation {
 
 			boolean nextSequence = chunks.isEmpty() || chunk == null ||
 					getLast(chunks).getMaxPrimaryKey().compareTo(chunk.getMinPrimaryKey()) >= 0 ||
-					!getLast(chunks).getFields().equals(chunk.getFields());
+					!newHashSet(getLast(chunks).getFields()).equals(newHashSet(chunk.getFields()));
 
 			if (nextSequence && !chunks.isEmpty()) {
-				Class<?> chunksClass = structure.createRecordClass(getKeys(), chunks.get(0).getFields());
+				List<String> sequenceFields = chunks.get(0).getFields();
+				Set<String> requestedFieldsInSequence = intersection(fieldsSet, newLinkedHashSet(sequenceFields));
 
-				producersFields.add(chunks.get(0).getFields());
+				Class<?> chunksClass = structure.createRecordClass(getKeys(), sequenceFields);
+
+				producersFields.add(sequenceFields);
 				producersClasses.add(chunksClass);
 
-				logger.info("Reading following chunks sequentially: {}", chunks);
-				StreamProducer producer = sequentialProducer(predicates, chunks, chunksClass);
+				List<AggregationChunk> sequentialChunkGroup = newArrayList(chunks);
+
+				if (queryPlan != null) {
+					queryPlan.addChunkGroup(newArrayList(requestedFieldsInSequence), sequentialChunkGroup);
+				}
+
+				StreamProducer producer = sequentialProducer(predicates, sequentialChunkGroup, chunksClass);
 				producers.add(producer);
 
 				chunks.clear();
@@ -468,14 +484,17 @@ public class Aggregation {
 		return streamReducer.getOutput();
 	}
 
-	private StreamProducer sequentialProducer(AggregationQuery.Predicates predicates,
-	                                          List<AggregationChunk> individualChunks, Class<?> sequenceClass) {
+	private StreamProducer sequentialProducer(final AggregationQuery.Predicates predicates,
+	                                          List<AggregationChunk> individualChunks, final Class<?> sequenceClass) {
 		checkArgument(!individualChunks.isEmpty());
-		List<StreamProducer<Object>> producers = new ArrayList<>();
-		for (AggregationChunk chunk : individualChunks) {
-			producers.add(chunkReaderWithFilter(predicates, chunk, sequenceClass));
-		}
-		return StreamProducers.concat(eventloop, producers);
+		AsyncIterator<StreamProducer<Object>> producerAsyncIterator = AsyncIterators.transform(individualChunks.iterator(),
+				new AsyncFunction<AggregationChunk, StreamProducer<Object>>() {
+					@Override
+					public void apply(AggregationChunk chunk, ResultCallback<StreamProducer<Object>> producerCallback) {
+						producerCallback.onResult(chunkReaderWithFilter(predicates, chunk, sequenceClass));
+					}
+				});
+		return StreamProducers.concat(eventloop, producerAsyncIterator);
 	}
 
 	private StreamProducer chunkReaderWithFilter(AggregationQuery.Predicates predicates,
@@ -497,7 +516,7 @@ public class Aggregation {
 	}
 
 	private Predicate createNotEqualsPredicate(Class<?> recordClass, List<AggregationQuery.PredicateNotEquals> notEqualsPredicates) {
-		AsmBuilder<Predicate> builder = new AsmBuilder<>(classLoader, Predicate.class).setBytecodeSaveDir(Paths.get("./codegenOutput"));
+		AsmBuilder<Predicate> builder = new AsmBuilder<>(classLoader, Predicate.class);
 		PredicateDefAnd predicateDefAnd = and();
 		for (AggregationQuery.PredicateNotEquals notEqualsPredicate : notEqualsPredicates) {
 			predicateDefAnd.add(cmpNe(
