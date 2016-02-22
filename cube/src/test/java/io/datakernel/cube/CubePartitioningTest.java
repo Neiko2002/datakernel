@@ -171,7 +171,7 @@ public class CubePartitioningTest {
 			eventloop.run();
 
 			ResultCallbackFuture<Boolean> callback = new ResultCallbackFuture<>();
-			cube.consolidate(100, "consolidator", callback);
+			cube.consolidate(100, callback);
 			eventloop.run();
 			boolean consolidated = callback.isDone() ? callback.get() : false;
 			if (consolidated)
