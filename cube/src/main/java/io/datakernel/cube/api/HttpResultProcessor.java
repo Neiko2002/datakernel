@@ -45,16 +45,18 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 	@Override
 	public HttpResponse apply(QueryResult result) {
 		String response = constructResult(result.getRecords(), result.getRecordClass(), result.getTotals(),
-				result.getCount(), result.getDrillDowns(), result.getDimensions(), result.getAttributes(),
-				result.getMeasures(), result.getSortedBy(), result.getFilterAttributesPlaceholder(),
-				result.getFilterAttributes(), result.getFields(), result.getMetadataFields());
+				result.getCount(), result.getDrillDowns(), result.getChains(), result.getDimensions(),
+				result.getAttributes(), result.getMeasures(), result.getSortedBy(),
+				result.getFilterAttributesPlaceholder(), result.getFilterAttributes(), result.getFields(),
+				result.getMetadataFields());
 		return createResponse(response);
 	}
 
 	private String constructResult(List results, Class resultClass, TotalsPlaceholder totals, int count,
-	                               Set<DrillDown> drillDowns, List<String> dimensions, List<String> attributes,
-	                               List<String> measures, List<String> sortedBy, Object filterAttributesPlaceholder,
-	                               List<String> filterAttributes, Set<String> fields, Set<String> metadataFields) {
+	                               Set<DrillDown> drillDowns, Set<List<String>> chains, List<String> dimensions,
+	                               List<String> attributes, List<String> measures, List<String> sortedBy,
+	                               Object filterAttributesPlaceholder, List<String> filterAttributes,
+	                               Set<String> fields, Set<String> metadataFields) {
 		FieldGetter[] dimensionGetters = new FieldGetter[dimensions.size()];
 		KeyType[] keyTypes = new KeyType[dimensions.size()];
 		for (int i = 0; i < dimensions.size(); ++i) {
@@ -94,6 +96,9 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 		if (nullOrContains(metadataFields, DRILLDOWNS_FIELD))
 			jsonMetadata.add(DRILLDOWNS_FIELD, getDrillDownsJson(drillDowns));
 
+		if (nullOrContains(metadataFields, CHAINS_FIELD))
+			jsonMetadata.add(CHAINS_FIELD, getJsonArrayFromSetOfStrings(chains));
+
 		if (nullOrContains(metadataFields, SORTED_BY_FIELD))
 			jsonMetadata.add(SORTED_BY_FIELD, getJsonArrayFromList(sortedBy));
 
@@ -109,6 +114,22 @@ public final class HttpResultProcessor implements ResultProcessor<HttpResponse> 
 
 		jsonResult.addProperty(COUNT_FIELD, count);
 		return jsonResult.toString();
+	}
+
+	private static JsonArray getJsonArrayFromSetOfStrings(Set<List<String>> set) {
+		JsonArray outer = new JsonArray();
+
+		for (List<String> l : set) {
+			JsonArray inner = new JsonArray();
+
+			for (String s : l) {
+				inner.add(new JsonPrimitive(s));
+			}
+
+			outer.add(inner);
+		}
+
+		return outer;
 	}
 
 	private static JsonArray getJsonArrayFromList(List<String> strings) {

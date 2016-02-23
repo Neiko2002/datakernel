@@ -86,6 +86,7 @@ public final class RequestExecutor {
 		Set<String> storedDimensions = newHashSet();
 
 		Set<DrillDown> drillDowns;
+		Set<List<String>> chains;
 
 		CubeQuery query = new CubeQuery();
 
@@ -239,8 +240,18 @@ public final class RequestExecutor {
 		}
 
 		void buildDrillDowns() {
-			if (nullOrContains(metadataFields, "drillDowns"))
-				drillDowns = cube.getDrillDowns(storedDimensions, queryPredicates, queryStoredMeasures);
+			boolean drillDownsRequested = nullOrContains(metadataFields, "drillDowns");
+			boolean chainsRequested = nullOrContains(metadataFields, "chains");
+			if (drillDownsRequested || chainsRequested) {
+				Cube.DrillDownsAndChains drillDownsAndChains = cube.getDrillDownsAndChains(storedDimensions,
+						queryPredicates, queryStoredMeasures);
+
+				if (drillDownsRequested)
+					drillDowns = drillDownsAndChains.drillDowns;
+
+				if (chainsRequested)
+					chains = drillDownsAndChains.chains;
+			}
 		}
 
 		void processComputedMeasures() {
@@ -377,8 +388,8 @@ public final class RequestExecutor {
 			List<String> filterAttributes = nullOrContains(metadataFields, "filterAttributes") ?
 					this.filterAttributes : null;
 
-			return new QueryResult(results, resultClass, totalsPlaceholder, count, drillDowns, dimensions, attributes,
-					resultMeasures, appliedOrderings, filterAttributesPlaceholder, filterAttributes, fields,
+			return new QueryResult(results, resultClass, totalsPlaceholder, count, drillDowns, chains, dimensions,
+					attributes, resultMeasures, appliedOrderings, filterAttributesPlaceholder, filterAttributes, fields,
 					metadataFields);
 		}
 

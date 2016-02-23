@@ -424,9 +424,20 @@ public final class Cube implements ConcurrentJmxMBean {
 		});
 	}
 
-	public Set<DrillDown> getDrillDowns(Set<String> dimensions, AggregationQuery.Predicates predicates,
-	                                    Set<String> measures) {
+	public static class DrillDownsAndChains {
+		public Set<DrillDown> drillDowns;
+		public Set<List<String>> chains;
+
+		public DrillDownsAndChains(Set<DrillDown> drillDowns, Set<List<String>> chains) {
+			this.drillDowns = drillDowns;
+			this.chains = chains;
+		}
+	}
+
+	public DrillDownsAndChains getDrillDownsAndChains(Set<String> dimensions, AggregationQuery.Predicates predicates,
+	                                                  Set<String> measures) {
 		Set<DrillDown> drillDowns = newHashSet();
+		Set<List<String>> chains = newHashSet();
 
 		AggregationQuery query = new AggregationQuery(newArrayList(dimensions), newArrayList(measures), predicates);
 
@@ -443,19 +454,24 @@ public final class Cube implements ConcurrentJmxMBean {
 			Set<String> availableMeasures = newHashSet();
 			Sets.intersection(aggregationMeasures, measures).copyInto(availableMeasures);
 
-			Iterable<String> availableDimensions = filter(aggregation.getKeys(), not(in(dimensions)));
-			Set<List<String>> drillDownChains = childParentRelationships.buildDrillDownChains(availableDimensions);
+			Iterable<String> filteredDimensions = filter(aggregation.getKeys(), not(in(queryDimensions)));
+			Set<List<String>> filteredChains = childParentRelationships.buildDrillDownChains(filteredDimensions);
+			Set<List<String>> allChains = childParentRelationships.buildDrillDownChains(aggregation.getKeys());
 
-			for (List<String> drillDownChain : drillDownChains) {
+			for (List<String> drillDownChain : filteredChains) {
 				drillDowns.add(new DrillDown(drillDownChain, availableMeasures));
 			}
+
+			chains.addAll(allChains);
 		}
 
-		return drillDowns;
+		Set<List<String>> longestChains = childParentRelationships.buildLongestChains(chains);
+
+		return new DrillDownsAndChains(drillDowns, longestChains);
 	}
 
 	private List<String> getQueryDimensions(Iterable<String> dimensions,
-	                                            Iterable<AggregationQuery.Predicate> predicates) {
+	                                        Iterable<AggregationQuery.Predicate> predicates) {
 		Set<String> eqPredicateDimensions = newHashSet();
 
 		for (AggregationQuery.Predicate predicate : predicates) {

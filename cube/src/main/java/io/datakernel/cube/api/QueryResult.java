@@ -18,7 +18,6 @@ package io.datakernel.cube.api;
 
 import com.google.common.base.MoreObjects;
 import io.datakernel.cube.DrillDown;
-import io.datakernel.cube.api.TotalsPlaceholder;
 
 import java.util.List;
 import java.util.Set;
@@ -31,6 +30,7 @@ public final class QueryResult {
 	private final int count;
 
 	private final Set<DrillDown> drillDowns;
+	private final Set<List<String>> chains;
 	private final List<String> dimensions;
 	private final List<String> attributes;
 	private final List<String> measures;
@@ -42,8 +42,8 @@ public final class QueryResult {
 	private final Set<String> fields;
 	private final Set<String> metadataFields;
 
-	public QueryResult(List records, Class recordClass, TotalsPlaceholder totals,
-	                   int count, Set<DrillDown> drillDowns, List<String> dimensions, List<String> attributes,
+	public QueryResult(List records, Class recordClass, TotalsPlaceholder totals, int count, Set<DrillDown> drillDowns,
+	                   Set<List<String>> chains, List<String> dimensions, List<String> attributes,
 	                   List<String> measures, List<String> sortedBy, Object filterAttributesPlaceholder,
 	                   List<String> filterAttributes, Set<String> fields, Set<String> metadataFields) {
 		this.records = records;
@@ -51,6 +51,7 @@ public final class QueryResult {
 		this.totals = totals;
 		this.count = count;
 		this.drillDowns = drillDowns;
+		this.chains = chains;
 		this.dimensions = dimensions;
 		this.attributes = attributes;
 		this.measures = measures;
@@ -79,6 +80,10 @@ public final class QueryResult {
 
 	public Set<DrillDown> getDrillDowns() {
 		return drillDowns;
+	}
+
+	public Set<List<String>> getChains() {
+		return chains;
 	}
 
 	public List<String> getDimensions() {
@@ -121,6 +126,7 @@ public final class QueryResult {
 				.add("totals", totals)
 				.add("count", count)
 				.add("drillDowns", drillDowns)
+				.add("chains", chains)
 				.add("dimensions", dimensions)
 				.add("attributes", attributes)
 				.add("measures", measures)
