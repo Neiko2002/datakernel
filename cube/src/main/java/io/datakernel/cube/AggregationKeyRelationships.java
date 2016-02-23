@@ -50,10 +50,10 @@ public class AggregationKeyRelationships {
 		return drillDown;
 	}
 
-	public Set<List<String>> buildDrillDownChains(Iterable<String> availableDimensions) {
+	public Set<List<String>> buildDrillDownChains(Set<String> usedDimensions, Iterable<String> availableDimensions) {
 		Set<List<String>> drillDowns = newHashSet();
 		for (String dimension : availableDimensions) {
-			List<String> drillDown = buildDrillDownChain(dimension);
+			List<String> drillDown = buildDrillDownChain(usedDimensions, dimension);
 			drillDowns.add(drillDown);
 		}
 		return drillDowns;
@@ -91,18 +91,6 @@ public class AggregationKeyRelationships {
 		}
 
 		return true;
-	}
-
-	public List<String> buildDrillDownChain(String dimension) {
-		LinkedList<String> drillDown = new LinkedList<>();
-		drillDown.add(dimension);
-		String child = dimension;
-		String parent;
-		while ((parent = childParentRelationships.get(child)) != null) {
-			drillDown.addFirst(parent);
-			child = parent;
-		}
-		return drillDown;
 	}
 
 	public Set<String> findChildren(String parent) {

@@ -47,11 +47,11 @@ public class AggregationKeyRelationshipsTest {
 	@SuppressWarnings("unchecked")
 	@Test
 	public void testDrillDownChains() throws Exception {
-		Set<List<String>> drillDownChains1 = aggregationKeyRelationships.buildDrillDownChains(newHashSet("advertiser", "banner", "campaign", "offer"));
+		Set<List<String>> drillDownChains1 = aggregationKeyRelationships.buildDrillDownChains(Sets.<String>newHashSet(), newHashSet("advertiser", "banner", "campaign", "offer"));
 		assertEquals(newHashSet(newArrayList("advertiser"), newArrayList("advertiser", "campaign", "offer"), newArrayList("advertiser", "campaign", "offer", "banner"),
 				newArrayList("advertiser", "campaign")), drillDownChains1);
 
-		Set<List<String>> drillDownChains2 = aggregationKeyRelationships.buildDrillDownChains(newHashSet("banner", "campaign", "offer"));
+		Set<List<String>> drillDownChains2 = aggregationKeyRelationships.buildDrillDownChains(Sets.<String>newHashSet(), newHashSet("banner", "campaign", "offer"));
 		assertEquals(newHashSet(newArrayList("advertiser", "campaign", "offer", "banner"),
 				newArrayList("advertiser", "campaign"), newArrayList("advertiser", "campaign", "offer")), drillDownChains2);
 	}

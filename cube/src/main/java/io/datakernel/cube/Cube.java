@@ -455,8 +455,8 @@ public final class Cube implements ConcurrentJmxMBean {
 			Sets.intersection(aggregationMeasures, measures).copyInto(availableMeasures);
 
 			Iterable<String> filteredDimensions = filter(aggregation.getKeys(), not(in(queryDimensions)));
-			Set<List<String>> filteredChains = childParentRelationships.buildDrillDownChains(filteredDimensions);
-			Set<List<String>> allChains = childParentRelationships.buildDrillDownChains(aggregation.getKeys());
+			Set<List<String>> filteredChains = childParentRelationships.buildDrillDownChains(newHashSet(queryDimensions), filteredDimensions);
+			Set<List<String>> allChains = childParentRelationships.buildDrillDownChains(Sets.<String>newHashSet(), aggregation.getKeys());
 
 			for (List<String> drillDownChain : filteredChains) {
 				drillDowns.add(new DrillDown(drillDownChain, availableMeasures));
