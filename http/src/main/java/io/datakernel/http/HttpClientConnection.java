@@ -74,7 +74,7 @@ final class HttpClientConnection extends AbstractHttpConnection {
 		if (this.callback != null) {
 			ResultCallback<HttpResponse> callback = this.callback;
 			this.callback = null;
-			callback.onException(e);
+			callback.fireException(e);
 		}
 	}
 
@@ -142,7 +142,7 @@ final class HttpClientConnection extends AbstractHttpConnection {
 		response.body(bodyBuf);
 		ResultCallback<HttpResponse> callback = this.callback;
 		this.callback = null;
-		callback.onResult(response);
+		callback.sendResult(response);
 		if (!isRegistered())
 			return;
 		if (keepAlive) {

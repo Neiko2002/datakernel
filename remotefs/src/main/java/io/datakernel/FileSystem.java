@@ -60,14 +60,14 @@ public final class FileSystem {
 		logger.trace("Opening file {}", fileName);
 		ensureDirectory(storage, fileName, new ResultCallback<Path>() {
 			@Override
-			public void onResult(Path path) {
+			protected void onResult(Path path) {
 				AsyncFile.open(eventloop, executor, path, new OpenOption[]{CREATE, WRITE, TRUNCATE_EXISTING}, callback);
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				logger.error("Caught exception while trying to ensure directory", e);
-				callback.onException(e);
+				callback.fireException(e);
 			}
 		});
 	}

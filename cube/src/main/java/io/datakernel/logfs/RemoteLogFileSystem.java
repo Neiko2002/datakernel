@@ -47,13 +47,13 @@ public final class RemoteLogFileSystem extends AbstractLogFileSystem {
 	public void list(final String logPartition, final ResultCallback<List<LogFile>> callback) {
 		client.list(new ResultCallback<List<String>>() {
 			@Override
-			public void onResult(List<String> files) {
-				callback.onResult(getLogFiles(files, logPartition));
+			protected void onResult(List<String> files) {
+				callback.sendResult(getLogFiles(files, logPartition));
 			}
 
 			@Override
-			public void onException(Exception exception) {
-				callback.onException(exception);
+			protected void onException(Exception exception) {
+				callback.fireException(exception);
 			}
 		});
 	}
@@ -62,12 +62,12 @@ public final class RemoteLogFileSystem extends AbstractLogFileSystem {
 	public void read(String logPartition, LogFile logFile, long startPosition, final StreamConsumer<ByteBuf> consumer) {
 		client.download(path(logPartition, logFile), startPosition, new ResultCallback<StreamTransformerWithCounter>() {
 			@Override
-			public void onResult(StreamTransformerWithCounter result) {
+			protected void onResult(StreamTransformerWithCounter result) {
 				result.getOutput().streamTo(consumer);
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				StreamProducers.<ByteBuf>closingWithError(eventloop, e).streamTo(consumer);
 			}
 		});
@@ -78,14 +78,14 @@ public final class RemoteLogFileSystem extends AbstractLogFileSystem {
 		final String fileName = path(logPartition, logFile);
 		client.upload(fileName, producer, new CompletionCallback() {
 			@Override
-			public void onComplete() {
-				callback.onComplete();
+			protected void onComplete() {
+				callback.complete();
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				client.delete(fileName, AsyncCallbacks.ignoreCompletionCallback());
-				callback.onException(e);
+				callback.fireException(e);
 			}
 		});
 	}

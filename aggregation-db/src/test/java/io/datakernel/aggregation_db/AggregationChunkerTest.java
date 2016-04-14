@@ -88,11 +88,11 @@ public class AggregationChunkerTest {
 		ResultCallback<List<AggregationChunk.NewChunk>> resultCallback = new ResultCallback<List<AggregationChunk.NewChunk>>() {
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 			}
 
 			@Override
-			public void onResult(List<AggregationChunk.NewChunk> result) {
+			protected void onResult(List<AggregationChunk.NewChunk> result) {
 				list.add(result);
 			}
 		};
@@ -178,11 +178,11 @@ public class AggregationChunkerTest {
 		ResultCallback<List<AggregationChunk.NewChunk>> resultCallback = new ResultCallback<List<AggregationChunk.NewChunk>>() {
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 			}
 
 			@Override
-			public void onResult(List<AggregationChunk.NewChunk> result) {
+			protected void onResult(List<AggregationChunk.NewChunk> result) {
 				list.add(result);
 			}
 		};
@@ -282,11 +282,11 @@ public class AggregationChunkerTest {
 		ResultCallback<List<AggregationChunk.NewChunk>> resultCallback = new ResultCallback<List<AggregationChunk.NewChunk>>() {
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 			}
 
 			@Override
-			public void onResult(List<AggregationChunk.NewChunk> result) {
+			protected void onResult(List<AggregationChunk.NewChunk> result) {
 				list.add(result);
 			}
 		};

@@ -76,10 +76,10 @@ public class RpcHelloWorldTest {
 				try {
 					result = helloService.hello(request.name);
 				} catch (Exception e) {
-					callback.onException(e);
+					callback.fireException(e);
 					return;
 				}
-				callback.onResult(new HelloResponse(result));
+				callback.sendResult(new HelloResponse(result));
 			}
 		};
 	}
@@ -169,14 +169,14 @@ public class RpcHelloWorldTest {
 					public void run() {
 						client.client.sendRequest(new HelloRequest(name), TIMEOUT, new ResultCallback<HelloResponse>() {
 							@Override
-							public void onResult(final HelloResponse response) {
+							protected void onResult(final HelloResponse response) {
 								success.incrementAndGet();
 								latch.countDown();
 								assertEquals("Hello, " + name + "!", response.message);
 							}
 
 							@Override
-							public void onException(final Exception exception) {
+							protected void onException(final Exception exception) {
 								latch.countDown();
 								System.err.println(exception.getMessage());
 							}
@@ -233,13 +233,13 @@ public class RpcHelloWorldTest {
 					public void run() {
 						client1.client.sendRequest(new HelloRequest(name), TIMEOUT, new ResultCallback<HelloResponse>() {
 							@Override
-							public void onResult(final HelloResponse response) {
+							protected void onResult(final HelloResponse response) {
 								latch1.countDown();
 								assertEquals("Hello, " + name + "!", response.message);
 							}
 
 							@Override
-							public void onException(final Exception exception) {
+							protected void onException(final Exception exception) {
 								latch1.countDown();
 								fail(exception.getMessage());
 							}
@@ -251,13 +251,13 @@ public class RpcHelloWorldTest {
 					public void run() {
 						client2.client.sendRequest(new HelloRequest(name), TIMEOUT, new ResultCallback<HelloResponse>() {
 							@Override
-							public void onResult(final HelloResponse response) {
+							protected void onResult(final HelloResponse response) {
 								latch2.countDown();
 								assertEquals("Hello, " + name + "!", response.message);
 							}
 
 							@Override
-							public void onException(final Exception exception) {
+							protected void onException(final Exception exception) {
 								latch2.countDown();
 								fail(exception.getMessage());
 							}
@@ -290,13 +290,13 @@ public class RpcHelloWorldTest {
 						public void run() {
 							client.client.sendRequest(new HelloRequest("benchmark"), TIMEOUT, new ResultCallback<HelloResponse>() {
 								@Override
-								public void onResult(HelloResponse result) {
+								protected void onResult(HelloResponse result) {
 									latch.countDown();
 									success.incrementAndGet();
 								}
 
 								@Override
-								public void onException(Exception exception) {
+								protected void onException(Exception exception) {
 									latch.countDown();
 									error.incrementAndGet();
 								}

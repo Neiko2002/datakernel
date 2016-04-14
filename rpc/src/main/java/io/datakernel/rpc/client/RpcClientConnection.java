@@ -218,7 +218,7 @@ public final class RpcClientConnection implements RpcConnection, RpcSender {
 
 	private void returnError(ResultCallback<?> callback, Exception exception) {
 		if (callback != null) {
-			callback.onException(exception);
+			callback.fireException(exception);
 		}
 	}
 
@@ -243,7 +243,7 @@ public final class RpcClientConnection implements RpcConnection, RpcSender {
 		ResultCallback<Object> callback = getResultCallback(message);
 		if (callback == null)
 			return;
-		callback.onResult(message.getData());
+		callback.sendResult(message.getData());
 	}
 
 	@SuppressWarnings("unchecked")
@@ -308,7 +308,7 @@ public final class RpcClientConnection implements RpcConnection, RpcSender {
 		return requestsStats;
 	}
 
-	private final class JmxConnectionMonitoringResultCallback<T> implements ResultCallback<T> {
+	private final class JmxConnectionMonitoringResultCallback<T> extends ResultCallback<T> {
 
 		private Stopwatch stopwatch;
 		private final ResultCallback<T> callback;
@@ -319,16 +319,16 @@ public final class RpcClientConnection implements RpcConnection, RpcSender {
 		}
 
 		@Override
-		public void onResult(T result) {
+		protected void onResult(T result) {
 			if (isMonitoring()) {
 				requestsStats.getSuccessfulRequests().recordEvent();
 				requestsStats.getResponseTime().recordValue(timeElapsed());
 			}
-			callback.onResult(result);
+			callback.sendResult(result);
 		}
 
 		@Override
-		public void onException(Exception exception) {
+		protected void onException(Exception exception) {
 			if (isMonitoring()) {
 				if (exception instanceof RpcRemoteException) {
 					requestsStats.getFailedRequests().recordEvent();
@@ -338,7 +338,7 @@ public final class RpcClientConnection implements RpcConnection, RpcSender {
 					requestsStats.getServerExceptions().recordException(exception, null);
 				}
 			}
-			callback.onException(exception);
+			callback.fireException(exception);
 		}
 
 		private int timeElapsed() {

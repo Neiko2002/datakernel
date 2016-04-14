@@ -36,9 +36,9 @@ public class StreamTransformerWithCounter extends AbstractStreamTransformer_1_1<
 			this.positionCallback = positionCallback;
 		} else {
 			if (this.getOutput().getProducerStatus() == StreamStatus.END_OF_STREAM) {
-				positionCallback.onResult(streamedSize);
+				positionCallback.sendResult(streamedSize);
 			} else {
-				positionCallback.onException(this.getOutput().getProducerException());
+				positionCallback.fireException(this.getOutput().getProducerException());
 			}
 		}
 	}
@@ -56,13 +56,13 @@ public class StreamTransformerWithCounter extends AbstractStreamTransformer_1_1<
 			if (expectedSize == streamedSize) {
 				outputProducer.sendEndOfStream();
 				if (positionCallback != null) {
-					positionCallback.onResult(streamedSize);
+					positionCallback.sendResult(streamedSize);
 				}
 			} else {
 				Exception e = new Exception("Expected and actual sizes mismatch. Expected: " + expectedSize + ", Actual: " + streamedSize);
 				onError(e);
 				if (positionCallback != null) {
-					positionCallback.onException(e);
+					positionCallback.fireException(e);
 				}
 			}
 		}

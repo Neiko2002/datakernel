@@ -212,7 +212,7 @@ public final class RpcClient implements EventloopService, EventloopJmxMBean {
 	public void stop(final CompletionCallback callback) {
 		checkNotNull(callback);
 		stop();
-		callback.onComplete();
+		callback.complete();
 	}
 
 	private BufferSerializer<RpcMessage> getSerializer() {
@@ -234,7 +234,7 @@ public final class RpcClient implements EventloopService, EventloopJmxMBean {
 		logger.info("Connecting {}", address);
 		eventloop.connect(address, socketSettings, new ConnectCallback() {
 			@Override
-			public void onConnect(SocketChannel socketChannel) {
+			protected void onConnect(SocketChannel socketChannel) {
 				StatusListener statusListener = new StatusListener() {
 					@Override
 					public void onOpen(RpcClientConnection connection) {
@@ -269,7 +269,7 @@ public final class RpcClient implements EventloopService, EventloopJmxMBean {
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				//jmx
 				generalConnectsStats.getFailedConnects().recordEvent();
 				connectsStatsPerAddress.get(address).getFailedConnects().recordEvent();
@@ -352,7 +352,7 @@ public final class RpcClient implements EventloopService, EventloopJmxMBean {
 
 		@Override
 		public <I, O> void sendRequest(I request, int timeout, ResultCallback<O> callback) {
-			callback.onException(NO_SENDER_AVAILABLE_EXCEPTION);
+			callback.fireException(NO_SENDER_AVAILABLE_EXCEPTION);
 		}
 	}
 
@@ -443,7 +443,7 @@ public final class RpcClient implements EventloopService, EventloopJmxMBean {
 		return requestStatsPerClass.get(requestClass);
 	}
 
-	private final class JmxMonitoringResultCallback<T> implements ResultCallback<T> {
+	private final class JmxMonitoringResultCallback<T> extends ResultCallback<T> {
 
 		private Stopwatch stopwatch;
 		private final Class<?> requestClass;
@@ -456,17 +456,17 @@ public final class RpcClient implements EventloopService, EventloopJmxMBean {
 		}
 
 		@Override
-		public void onResult(T result) {
+		protected void onResult(T result) {
 			if (isMonitoring()) {
 				generalRequestsStats.getSuccessfulRequests().recordEvent();
 				ensureRequestStatsPerClass(requestClass).getSuccessfulRequests().recordEvent();
 				updateResponseTime(requestClass, timeElapsed());
 			}
-			callback.onResult(result);
+			callback.sendResult(result);
 		}
 
 		@Override
-		public void onException(Exception exception) {
+		protected void onException(Exception exception) {
 			if (isMonitoring()) {
 				if (exception instanceof RpcTimeoutException) {
 					generalRequestsStats.getExpiredRequests().recordEvent();
@@ -485,7 +485,7 @@ public final class RpcClient implements EventloopService, EventloopJmxMBean {
 							.getServerExceptions().recordException(exception, null);
 				}
 			}
-			callback.onException(exception);
+			callback.fireException(exception);
 		}
 
 		private void updateResponseTime(Class<?> requestClass, int responseTime) {

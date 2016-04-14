@@ -58,12 +58,12 @@ public class SimpleFsChunkStorage implements AggregationChunkStorage {
 
 		client.download(path(id), 0, new ResultCallback<StreamTransformerWithCounter>() {
 			@Override
-			public void onResult(StreamTransformerWithCounter result) {
+			protected void onResult(StreamTransformerWithCounter result) {
 				result.getOutput().streamTo(decompressor.getInput());
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				StreamProducers.<ByteBuf>closingWithError(eventloop, e).streamTo(decompressor.getInput());
 			}
 		});
@@ -84,14 +84,14 @@ public class SimpleFsChunkStorage implements AggregationChunkStorage {
 		serializer.getOutput().streamTo(compressor.getInput());
 		client.upload(path(id), compressor.getOutput(), new CompletionCallback() {
 			@Override
-			public void onComplete() {
-				callback.onComplete();
+			protected void onComplete() {
+				callback.complete();
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				client.delete(path(id), AsyncCallbacks.ignoreCompletionCallback());
-				callback.onException(e);
+				callback.fireException(e);
 			}
 		});
 	}

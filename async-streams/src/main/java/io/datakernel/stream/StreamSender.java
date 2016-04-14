@@ -94,14 +94,14 @@ public class StreamSender<T> extends AbstractStreamProducer<T> {
 	public void send(T item, CompletionCallback callback) {
 		if (getProducerStatus() == StreamStatus.READY) {
 			doSend(item);
-			callback.onComplete();
+			callback.complete();
 			return;
 		}
 
 		if (getProducerStatus() == StreamStatus.SUSPENDED) {
 			addToBuffer(item, callback);
 		} else {
-			callback.onException(new IllegalStateException("StreamSender closed."));
+			callback.fireException(new IllegalStateException("StreamSender closed."));
 		}
 	}
 
@@ -144,7 +144,7 @@ public class StreamSender<T> extends AbstractStreamProducer<T> {
 	private T retrieveFromBuffer() {
 		QueueEntry poppedEntry = queue.poll();
 		if (poppedEntry != null && poppedEntry.callback != null)
-			poppedEntry.callback.onComplete();
+			poppedEntry.callback.complete();
 		return poppedEntry == null ? null : poppedEntry.item;
 	}
 

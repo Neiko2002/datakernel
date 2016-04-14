@@ -167,9 +167,9 @@ public class StreamMessagingConnection<I, O> extends TcpStreamSocketConnection i
 		super.onClosed();
 		if (writeCompletionCallback != null && socketWriter.getConsumerStatus().isClosed()) {
 			if (socketWriter.getConsumerStatus() == StreamStatus.END_OF_STREAM)
-				writeCompletionCallback.onComplete();
+				writeCompletionCallback.complete();
 			else
-				writeCompletionCallback.onException(socketWriter.getConsumerException());
+				writeCompletionCallback.fireException(socketWriter.getConsumerException());
 		}
 	}
 

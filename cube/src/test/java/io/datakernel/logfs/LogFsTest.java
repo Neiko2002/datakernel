@@ -137,41 +137,34 @@ public class LogFsTest {
 				BufferSerializers.utf16Serializer());
 		DateTimeFormatter dateTimeFormatter = logManager.getDateTimeFormatter();
 
-		CompletionCallback stopCallback = new SimpleCompletionCallback() {
-			@Override
-			protected void onCompleteOrException() {
-				server.stop(ignoreCompletionCallback());
-			}
-		};
-
 		timeProvider.setTime(0); // 00:00
 		startServer(server);
 		new StreamProducers.OfIterator<>(eventloop, asList("1", "3", "5").iterator())
-				.streamTo(logManager.consumer("p1", stopCallback));
+				.streamTo(logManager.consumer("p1", getServerStopCallback(server)));
 		eventloop.run();
 		startServer(server);
 		new StreamProducers.OfIterator<>(eventloop, asList("2", "4", "6").iterator())
-				.streamTo(logManager.consumer("p2", stopCallback));
+				.streamTo(logManager.consumer("p2", getServerStopCallback(server)));
 		eventloop.run();
 
 		timeProvider.setTime(2 * ONE_HOUR_MILLIS - 15 * ONE_MINUTE_MILLIS); // 01:45
 		startServer(server);
 		new StreamProducers.OfIterator<>(eventloop, asList("7", "9", "11").iterator())
-				.streamTo(logManager.consumer("p1", stopCallback));
+				.streamTo(logManager.consumer("p1", getServerStopCallback(server)));
 		eventloop.run();
 		startServer(server);
 		new StreamProducers.OfIterator<>(eventloop, asList("8", "10", "12").iterator())
-				.streamTo(logManager.consumer("p2", stopCallback));
+				.streamTo(logManager.consumer("p2", getServerStopCallback(server)));
 		eventloop.run();
 
 		timeProvider.setTime(2 * ONE_HOUR_MILLIS + 15 * ONE_MINUTE_MILLIS); // 02:15
 		startServer(server);
 		new StreamProducers.OfIterator<>(eventloop, asList("13", "15", "17").iterator())
-				.streamTo(logManager.consumer("p1", stopCallback));
+				.streamTo(logManager.consumer("p1", getServerStopCallback(server)));
 		eventloop.run();
 		startServer(server);
 		new StreamProducers.OfIterator<>(eventloop, asList("14", "16", "18").iterator())
-				.streamTo(logManager.consumer("p2", stopCallback));
+				.streamTo(logManager.consumer("p2", getServerStopCallback(server)));
 		eventloop.run();
 
 		startServer(server);
@@ -180,7 +173,7 @@ public class LogFsTest {
 				AsyncCallbacks.<LogPosition>ignoreResultCallback()); // from 01:00
 		StreamConsumers.ToList<String> consumer = new StreamConsumers.ToList<>(eventloop);
 		producer.streamTo(consumer);
-		consumer.setCompletionCallback(stopCallback);
+		consumer.setCompletionCallback(getServerStopCallback(server));
 		eventloop.run();
 
 		assertEquals(asList("7", "9", "11", "13", "15", "17"), consumer.getList());
@@ -198,7 +191,58 @@ public class LogFsTest {
 		final LogManagerImpl<String> logManager = new LogManagerImpl<>(eventloop, fileSystem,
 				BufferSerializers.utf16Serializer(), DETAILED_DATE_TIME_FORMATTER, 10 * 60 * 1000);
 
-		CompletionCallback stopCallback = new SimpleCompletionCallback() {
+		new Thread(serverEventloop).start();
+		timeProvider.setTime(0); // 00:00
+		startServer(server);
+		new StreamProducers.OfIterator<>(eventloop, asList("1", "3", "5").iterator())
+				.streamTo(logManager.consumer("p1", getServerStopCallback(server)));
+		eventloop.run();
+		startServer(server);
+		new StreamProducers.OfIterator<>(eventloop, asList("2", "4", "6").iterator())
+				.streamTo(logManager.consumer("p2", getServerStopCallback(server)));
+		eventloop.run();
+
+		timeProvider.setTime(15 * ONE_MINUTE_MILLIS); // 00:15
+		startServer(server);
+		new StreamProducers.OfIterator<>(eventloop, asList("7", "9", "11").iterator())
+				.streamTo(logManager.consumer("p1", getServerStopCallback(server)));
+		eventloop.run();
+		startServer(server);
+		new StreamProducers.OfIterator<>(eventloop, asList("8", "10", "12").iterator())
+				.streamTo(logManager.consumer("p2", getServerStopCallback(server)));
+		eventloop.run();
+
+		timeProvider.setTime(25 * ONE_HOUR_MILLIS); // 00:25
+		startServer(server);
+		new StreamProducers.OfIterator<>(eventloop, asList("13", "15", "17").iterator())
+				.streamTo(logManager.consumer("p1", getServerStopCallback(server)));
+		eventloop.run();
+		startServer(server);
+		new StreamProducers.OfIterator<>(eventloop, asList("14", "16", "18").iterator())
+				.streamTo(logManager.consumer("p2", getServerStopCallback(server)));
+		eventloop.run();
+
+		startServer(server);
+		LogStreamProducer<String> producer = logManager.producer("p2", 10 * ONE_MINUTE_MILLIS, 20 * ONE_MINUTE_MILLIS - 1); // from 00:10:00 to 00:19:59
+		StreamConsumers.ToList<String> consumer = new StreamConsumers.ToList<>(eventloop);
+		producer.streamTo(consumer);
+		consumer.setCompletionCallback(getServerStopCallback(server));
+		eventloop.run();
+
+		assertEquals(asList("8", "10", "12"), consumer.getList());
+	}
+
+	private static CompletionCallback getServerStopCallback(final SimpleFsServer server) {
+		return new SimpleCompletionCallback() {
+			@Override
+			protected void onCompleteOrException() {
+				server.stop(ignoreCompletionCallback());
+			}
+		};
+	}
+
+	private CompletionCallback getServerStopCallback(final HashFsServer server) {
+		return new SimpleCompletionCallback() {
 			@Override
 			protected void onCompleteOrException() {
 				try {
@@ -206,46 +250,6 @@ public class LogFsTest {
 				} catch (Exception ignored) { }
 			}
 		};
-
-		new Thread(serverEventloop).start();
-		timeProvider.setTime(0); // 00:00
-		startServer(server);
-		new StreamProducers.OfIterator<>(eventloop, asList("1", "3", "5").iterator())
-				.streamTo(logManager.consumer("p1", stopCallback));
-		eventloop.run();
-		startServer(server);
-		new StreamProducers.OfIterator<>(eventloop, asList("2", "4", "6").iterator())
-				.streamTo(logManager.consumer("p2", stopCallback));
-		eventloop.run();
-
-		timeProvider.setTime(15 * ONE_MINUTE_MILLIS); // 00:15
-		startServer(server);
-		new StreamProducers.OfIterator<>(eventloop, asList("7", "9", "11").iterator())
-				.streamTo(logManager.consumer("p1", stopCallback));
-		eventloop.run();
-		startServer(server);
-		new StreamProducers.OfIterator<>(eventloop, asList("8", "10", "12").iterator())
-				.streamTo(logManager.consumer("p2", stopCallback));
-		eventloop.run();
-
-		timeProvider.setTime(25 * ONE_HOUR_MILLIS); // 00:25
-		startServer(server);
-		new StreamProducers.OfIterator<>(eventloop, asList("13", "15", "17").iterator())
-				.streamTo(logManager.consumer("p1", stopCallback));
-		eventloop.run();
-		startServer(server);
-		new StreamProducers.OfIterator<>(eventloop, asList("14", "16", "18").iterator())
-				.streamTo(logManager.consumer("p2", stopCallback));
-		eventloop.run();
-
-		startServer(server);
-		LogStreamProducer<String> producer = logManager.producer("p2", 10 * ONE_MINUTE_MILLIS, 20 * ONE_MINUTE_MILLIS - 1); // from 00:10:00 to 00:19:59
-		StreamConsumers.ToList<String> consumer = new StreamConsumers.ToList<>(eventloop);
-		producer.streamTo(consumer);
-		consumer.setCompletionCallback(stopCallback);
-		eventloop.run();
-
-		assertEquals(asList("8", "10", "12"), consumer.getList());
 	}
 
 	private void startServer(SimpleFsServer server) throws Exception {

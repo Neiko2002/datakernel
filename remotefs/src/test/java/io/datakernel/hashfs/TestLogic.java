@@ -149,12 +149,12 @@ public class TestLogic {
 
 		logic.onOfferRequest(Arrays.asList(a, b, c, d, e, f, g), new ArrayList<String>(), new ResultCallback<List<String>>() {
 			@Override
-			public void onResult(List<String> result) {
+			protected void onResult(List<String> result) {
 				assertEquals(Arrays.asList(a, b, g), result);
 			}
 
 			@Override
-			public void onException(Exception ignored) {
+			protected void onException(Exception ignored) {
 				fail("Can't sto here");
 			}
 		});
@@ -167,12 +167,12 @@ public class TestLogic {
 
 		logic.onShowAliveRequest(1, new ResultCallback<Set<ServerInfo>>() {
 			@Override
-			public void onResult(Set<ServerInfo> result) {
+			protected void onResult(Set<ServerInfo> result) {
 				assertEquals(new HashSet<>(bootstrap), result);
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				fail("Can't end here");
 			}
 		});
@@ -273,7 +273,7 @@ public class TestLogic {
 					neededFiles.add(s);
 				}
 			}
-			callback.onResult(neededFiles);
+			callback.sendResult(neededFiles);
 			for (String s : forDeletion) {
 				servers2deletedFiles.get(server).add(s);
 			}
@@ -286,7 +286,7 @@ public class TestLogic {
 
 		@Override
 		public void scan(ResultCallback<List<String>> callback) {
-			callback.onResult(Arrays.asList(a, b, c, d, e, f, g));
+			callback.sendResult(Arrays.asList(a, b, c, d, e, f, g));
 		}
 
 		@Override

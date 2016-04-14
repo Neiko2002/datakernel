@@ -64,15 +64,15 @@ public class AsyncHttpClientTest {
 
 		httpClient.execute(HttpRequest.get("http://127.0.0.1:" + PORT), 1000, new ResultCallback<HttpResponse>() {
 			@Override
-			public void onResult(final HttpResponse result) {
-				resultObserver.onResult(decodeUTF8(result.getBody()));
+			protected void onResult(final HttpResponse result) {
+				resultObserver.sendResult(decodeUTF8(result.getBody()));
 				httpClient.close();
 				httpServer.close();
 			}
 
 			@Override
-			public void onException(Exception exception) {
-				resultObserver.onException(exception);
+			protected void onException(Exception exception) {
+				resultObserver.fireException(exception);
 				httpClient.close();
 				httpServer.close();
 			}
@@ -111,15 +111,15 @@ public class AsyncHttpClientTest {
 
 		httpClient.execute(HttpRequest.get("http://127.0.0.1:" + PORT), TIMEOUT, new ResultCallback<HttpResponse>() {
 			@Override
-			public void onResult(HttpResponse result) {
-				resultObserver.onResult(decodeUTF8(result.getBody()));
+			protected void onResult(HttpResponse result) {
+				resultObserver.sendResult(decodeUTF8(result.getBody()));
 				httpClient.close();
 				httpServer.close();
 			}
 
 			@Override
-			public void onException(Exception exception) {
-				resultObserver.onException(exception);
+			protected void onException(Exception exception) {
+				resultObserver.fireException(exception);
 				httpClient.close();
 				httpServer.close();
 			}
@@ -145,14 +145,14 @@ public class AsyncHttpClientTest {
 
 		httpClient.execute(HttpRequest.get("http://google.com"), TIMEOUT, new ResultCallback<HttpResponse>() {
 			@Override
-			public void onResult(HttpResponse result) {
-				resultObserver.onResult(decodeUTF8(result.getBody()));
+			protected void onResult(HttpResponse result) {
+				resultObserver.sendResult(decodeUTF8(result.getBody()));
 				httpClient.close();
 			}
 
 			@Override
-			public void onException(Exception exception) {
-				resultObserver.onException(exception);
+			protected void onException(Exception exception) {
+				resultObserver.fireException(exception);
 				httpClient.close();
 			}
 		});
@@ -181,15 +181,15 @@ public class AsyncHttpClientTest {
 		httpClient.setMaxHttpMessageSize(12);
 		httpClient.execute(HttpRequest.get("http://127.0.0.1:" + PORT), TIMEOUT, new ResultCallback<HttpResponse>() {
 			@Override
-			public void onResult(HttpResponse result) {
-				resultObserver.onResult(decodeUTF8(result.getBody()));
+			protected void onResult(HttpResponse result) {
+				resultObserver.sendResult(decodeUTF8(result.getBody()));
 				httpClient.close();
 				httpServer.close();
 			}
 
 			@Override
-			public void onException(Exception exception) {
-				resultObserver.onException(exception);
+			protected void onException(Exception exception) {
+				resultObserver.fireException(exception);
 				httpClient.close();
 				httpServer.close();
 			}
@@ -231,15 +231,15 @@ public class AsyncHttpClientTest {
 
 		httpClient.execute(HttpRequest.get("http://127.0.0.1:" + PORT), TIMEOUT, new ResultCallback<HttpResponse>() {
 			@Override
-			public void onResult(HttpResponse result) {
-				resultObserver.onResult(decodeUTF8(result.getBody()));
+			protected void onResult(HttpResponse result) {
+				resultObserver.sendResult(decodeUTF8(result.getBody()));
 				httpClient.close();
 				server.close();
 			}
 
 			@Override
-			public void onException(Exception e) {
-				resultObserver.onException(e);
+			protected void onException(Exception e) {
+				resultObserver.fireException(e);
 				httpClient.close();
 				server.close();
 			}

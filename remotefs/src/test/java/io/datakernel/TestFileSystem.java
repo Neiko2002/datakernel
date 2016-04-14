@@ -101,10 +101,10 @@ public class TestFileSystem {
 
 		AsyncFile.open(eventloop, executor, client.resolve("c.txt"), new OpenOption[]{StandardOpenOption.READ}, new ResultCallback<AsyncFile>() {
 			@Override
-			public void onResult(final AsyncFile file) {
+			protected void onResult(final AsyncFile file) {
 				fs.save("1/c.txt", new ForwardingResultCallback<AsyncFile>(this) {
 					@Override
-					public void onResult(AsyncFile result) {
+					protected void onResult(AsyncFile result) {
 						StreamFileReader producer = StreamFileReader.readFileFully(eventloop, file, bufferSize);
 						StreamFileWriter consumer = StreamFileWriter.create(eventloop, result);
 						producer.streamTo(consumer);
@@ -113,7 +113,7 @@ public class TestFileSystem {
 			}
 
 			@Override
-			public void onException(Exception ignored) {
+			protected void onException(Exception ignored) {
 			}
 		});
 
@@ -135,10 +135,10 @@ public class TestFileSystem {
 
 		AsyncFile.open(eventloop, executor, client.resolve("d.txt"), new OpenOption[]{CREATE_NEW, WRITE}, new ResultCallback<AsyncFile>() {
 			@Override
-			public void onResult(final AsyncFile file) {
+			protected void onResult(final AsyncFile file) {
 				fs.get("2/b/d.txt", new ForwardingResultCallback<AsyncFile>(this) {
 					@Override
-					public void onResult(AsyncFile result) {
+					protected void onResult(AsyncFile result) {
 						StreamFileReader producer = StreamFileReader.readFileFully(eventloop, result, bufferSize);
 						StreamFileWriter consumer = StreamFileWriter.create(eventloop, file);
 						producer.streamTo(consumer);
@@ -147,7 +147,7 @@ public class TestFileSystem {
 			}
 
 			@Override
-			public void onException(Exception ignored) {
+			protected void onException(Exception ignored) {
 			}
 		});
 
@@ -165,19 +165,24 @@ public class TestFileSystem {
 
 		AsyncFile.open(eventloop, executor, client.resolve("to_be_deleted.txt"), new OpenOption[]{CREATE_NEW, WRITE}, new ResultCallback<AsyncFile>() {
 			@Override
-			public void onResult(final AsyncFile file) {
-				fs.get("no_file.txt", new ForwardingResultCallback<AsyncFile>(this) {
+			protected void onResult(final AsyncFile file) {
+				fs.get("no_file.txt", new ResultCallback<AsyncFile>() {
 					@Override
-					public void onResult(AsyncFile result) {
+					protected void onResult(AsyncFile result) {
 						StreamFileReader producer = StreamFileReader.readFileFully(eventloop, result, bufferSize);
 						StreamFileWriter consumer = StreamFileWriter.create(eventloop, file);
 						producer.streamTo(consumer);
+					}
+
+					@Override
+					protected void onException(Exception ignored) {
+						AsyncFile.delete(eventloop, executor, client.resolve("to_be_deleted.txt"), ignoreCompletionCallback());
 					}
 				});
 			}
 
 			@Override
-			public void onException(Exception ignored) {
+			protected void onException(Exception ignored) {
 				AsyncFile.delete(eventloop, executor, client.resolve("to_be_deleted.txt"), ignoreCompletionCallback());
 			}
 		});
@@ -208,12 +213,12 @@ public class TestFileSystem {
 		fs.initDirectories();
 		fs.delete("2/3/z.txt", new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				fail("Should not end here");
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				assertTrue(e.getClass() == NoSuchFileException.class);
 			}
 		});
@@ -229,14 +234,14 @@ public class TestFileSystem {
 		expected.addAll(Arrays.asList("1/a.txt", "1/b.txt", "2/3/a.txt", "2/b/d.txt", "2/b/e.txt"));
 		fs.list(new ResultCallback<List<String>>() {
 			@Override
-			public void onResult(List<String> result) {
+			protected void onResult(List<String> result) {
 				Collections.sort(result);
 				Collections.sort(expected);
 				assertEquals(expected, result);
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				fail("Should not get here");
 			}
 		});

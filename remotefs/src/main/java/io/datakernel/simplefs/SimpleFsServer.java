@@ -154,15 +154,15 @@ public final class SimpleFsServer extends FsServer implements EventloopService {
 	public void start(final CompletionCallback callback) {
 		logger.info("Starting SimpleFS");
 		if (serverStatus == RUNNING) {
-			callback.onComplete();
+			callback.complete();
 		} else {
 			try {
 				fileSystem.initDirectories();
 				protocol.listen();
 				serverStatus = RUNNING;
-				callback.onComplete();
+				callback.complete();
 			} catch (IOException e) {
-				callback.onException(e);
+				callback.fireException(e);
 			}
 		}
 	}
@@ -174,7 +174,7 @@ public final class SimpleFsServer extends FsServer implements EventloopService {
 			protocol.close();
 			serverStatus = SHUTDOWN;
 		}
-		callback.onComplete();
+		callback.complete();
 	}
 
 	// api
@@ -184,7 +184,7 @@ public final class SimpleFsServer extends FsServer implements EventloopService {
 		checkState(serverStatus == RUNNING, "Server shut down!");
 		fileSystem.save(fileName, new ForwardingResultCallback<AsyncFile>(callback) {
 			@Override
-			public void onResult(AsyncFile result) {
+			protected void onResult(AsyncFile result) {
 				logger.trace("File {} opened for writing", fileName);
 				StreamFileWriter writer = create(eventloop, result, true);
 				writer.setFlushCallback(callback);
@@ -199,10 +199,10 @@ public final class SimpleFsServer extends FsServer implements EventloopService {
 		checkState(serverStatus == RUNNING, "Server shut down!");
 		fileSystem.get(fileName, new ForwardingResultCallback<AsyncFile>(callback) {
 			@Override
-			public void onResult(AsyncFile result) {
+			protected void onResult(AsyncFile result) {
 				logger.trace("Opened file for streaming: {}", result);
 				StreamFileReader reader = readFileFrom(eventloop, result, bufferSize, startPosition);
-				callback.onResult(reader);
+				callback.sendResult(reader);
 			}
 		});
 	}

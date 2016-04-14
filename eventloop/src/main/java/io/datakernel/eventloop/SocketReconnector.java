@@ -74,13 +74,13 @@ public final class SocketReconnector implements AsyncGetter<SocketChannel> {
 	public void get(final ResultCallback<SocketChannel> callback) {
 		reconnect(eventloop, address, socketSettings, reconnectAttempts, reconnectTimeout, new ConnectCallback() {
 			@Override
-			public void onConnect(SocketChannel socketChannel) {
-				callback.onResult(socketChannel);
+			protected void onConnect(SocketChannel socketChannel) {
+				callback.sendResult(socketChannel);
 			}
 
 			@Override
-			public void onException(Exception exception) {
-				callback.onException(exception);
+			protected void onException(Exception exception) {
+				callback.fireException(exception);
 			}
 		});
 	}
@@ -111,13 +111,13 @@ public final class SocketReconnector implements AsyncGetter<SocketChannel> {
 		logger.info("Connecting {}", address);
 		eventloop.connect(address, socketSettings, new ConnectCallback() {
 			@Override
-			public void onConnect(SocketChannel socketChannel) {
+			protected void onConnect(SocketChannel socketChannel) {
 				logger.trace("Connection succeeded {}", socketChannel);
-				callback.onConnect(socketChannel);
+				callback.reportConnect(socketChannel);
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				if (reconnectAttempts > 0) {
 					if (logger.isWarnEnabled()) {
 						logger.warn("Connection failed, reconnecting to {}: {}", address, exception.toString());
@@ -134,7 +134,7 @@ public final class SocketReconnector implements AsyncGetter<SocketChannel> {
 					if (logger.isErrorEnabled()) {
 						logger.error("Could not reconnect to {}: {}", address, exception.toString());
 					}
-					callback.onException(exception);
+					callback.fireException(exception);
 				}
 			}
 		});

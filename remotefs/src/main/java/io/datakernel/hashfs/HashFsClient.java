@@ -153,14 +153,14 @@ public class HashFsClient implements FsClient {
 	                   final CompletionCallback callback) {
 		getAliveServers(new ResultCallback<List<ServerInfo>>() {
 			@Override
-			public void onResult(List<ServerInfo> result) {
+			protected void onResult(List<ServerInfo> result) {
 				List<ServerInfo> candidates = hashing.sortServers(destinationFileName, result);
 				upload(destinationFileName, 0, candidates, producer, callback);
 			}
 
 			@Override
-			public void onException(Exception e) {
-				callback.onException(e);
+			protected void onException(Exception e) {
+				callback.fireException(e);
 			}
 		});
 	}
@@ -169,14 +169,14 @@ public class HashFsClient implements FsClient {
 	public void download(final String sourceFileName, final long startPosition, final ResultCallback<StreamTransformerWithCounter> callback) {
 		getAliveServers(new ResultCallback<List<ServerInfo>>() {
 			@Override
-			public void onResult(List<ServerInfo> result) {
+			protected void onResult(List<ServerInfo> result) {
 				List<ServerInfo> candidates = hashing.sortServers(sourceFileName, result);
 				download(sourceFileName, startPosition, 0, candidates, callback);
 			}
 
 			@Override
-			public void onException(Exception e) {
-				callback.onException(e);
+			protected void onException(Exception e) {
+				callback.fireException(e);
 			}
 		});
 	}
@@ -185,14 +185,14 @@ public class HashFsClient implements FsClient {
 	public void delete(final String fileName, final CompletionCallback callback) {
 		getAliveServers(new ResultCallback<List<ServerInfo>>() {
 			@Override
-			public void onResult(List<ServerInfo> result) {
+			protected void onResult(List<ServerInfo> result) {
 				List<ServerInfo> candidates = hashing.sortServers(fileName, result);
 				delete(fileName, 0, candidates, callback);
 			}
 
 			@Override
-			public void onException(Exception e) {
-				callback.onException(e);
+			protected void onException(Exception e) {
+				callback.fireException(e);
 			}
 		});
 	}
@@ -201,13 +201,13 @@ public class HashFsClient implements FsClient {
 	public void list(final ResultCallback<List<String>> callback) {
 		getAliveServers(new ResultCallback<List<ServerInfo>>() {
 			@Override
-			public void onResult(List<ServerInfo> result) {
+			protected void onResult(List<ServerInfo> result) {
 				list(result, callback);
 			}
 
 			@Override
-			public void onException(Exception e) {
-				callback.onException(e);
+			protected void onException(Exception e) {
+				callback.fireException(e);
 			}
 		});
 	}
@@ -217,12 +217,12 @@ public class HashFsClient implements FsClient {
 		ServerInfo server = candidates.get(currentAttempt % candidates.size());
 		protocol.upload(server.getAddress(), fileName, producer, new CompletionCallback() {
 			@Override
-			public void onComplete() {
-				callback.onComplete();
+			protected void onComplete() {
+				callback.complete();
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				final int attempt = currentAttempt + 1;
 				if (attempt < maxRetryAttempts) {
 					schedule(attempt, new Runnable() {
@@ -232,7 +232,7 @@ public class HashFsClient implements FsClient {
 						}
 					});
 				} else {
-					callback.onException(e);
+					callback.fireException(e);
 				}
 			}
 		});
@@ -244,12 +244,12 @@ public class HashFsClient implements FsClient {
 		ServerInfo server = candidates.get(currentAttempt % candidates.size());
 		protocol.download(server.getAddress(), fileName, startPosition, new ResultCallback<StreamTransformerWithCounter>() {
 			@Override
-			public void onResult(StreamTransformerWithCounter result) {
-				callback.onResult(result);
+			protected void onResult(StreamTransformerWithCounter result) {
+				callback.sendResult(result);
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				final int attempt = currentAttempt + 1;
 				if (attempt < maxRetryAttempts) {
 					schedule(attempt, new Runnable() {
@@ -259,7 +259,7 @@ public class HashFsClient implements FsClient {
 						}
 					});
 				} else {
-					callback.onException(e);
+					callback.fireException(e);
 				}
 			}
 		});
@@ -270,12 +270,12 @@ public class HashFsClient implements FsClient {
 		ServerInfo server = candidates.get(currentAttempt % candidates.size());
 		protocol.delete(server.getAddress(), fileName, new CompletionCallback() {
 			@Override
-			public void onComplete() {
-				callback.onComplete();
+			protected void onComplete() {
+				callback.complete();
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				final int attempt = currentAttempt + 1;
 				if (attempt < maxRetryAttempts) {
 					schedule(attempt, new Runnable() {
@@ -285,7 +285,7 @@ public class HashFsClient implements FsClient {
 						}
 					});
 				} else {
-					callback.onException(e);
+					callback.fireException(e);
 				}
 			}
 		});
@@ -299,7 +299,7 @@ public class HashFsClient implements FsClient {
 				for (List<String> fileSet : results) {
 					files.addAll(fileSet);
 				}
-				callback.onResult(new ArrayList<>(files));
+				callback.sendResult(new ArrayList<>(files));
 			}
 		});
 		for (ServerInfo server : servers) {
@@ -327,9 +327,9 @@ public class HashFsClient implements FsClient {
 						}
 					});
 				} else if (servers.size() == 0 && currentAttempt >= maxRetryAttempts) {
-					callback.onException(new Exception("Can't find working servers."));
+					callback.fireException(new Exception("Can't find working servers."));
 				} else {
-					callback.onResult(new ArrayList<>(servers));
+					callback.sendResult(new ArrayList<>(servers));
 				}
 			}
 		});

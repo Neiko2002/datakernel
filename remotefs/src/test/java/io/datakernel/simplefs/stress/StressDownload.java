@@ -48,7 +48,7 @@ public class StressDownload {
 			final String file = FILES.get(rand.nextInt(OPERATIONS_QUANTITY));
 			client.download(file, 0, new ResultCallback<StreamTransformerWithCounter>() {
 				@Override
-				public void onResult(StreamTransformerWithCounter result) {
+				protected void onResult(StreamTransformerWithCounter result) {
 					try {
 						StreamConsumer<ByteBuf> consumer =
 								StreamFileWriter.create(eventloop,
@@ -57,12 +57,12 @@ public class StressDownload {
 												CLIENT_STORAGE.resolve(file), StreamFileWriter.CREATE_OPTIONS));
 						result.getOutput().streamTo(consumer);
 					} catch (IOException e) {
-						onException(e);
+						fireException(e);
 					}
 				}
 
 				@Override
-				public void onException(Exception e) {
+				protected void onException(Exception e) {
 					failures[0]++;
 				}
 			});

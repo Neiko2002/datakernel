@@ -70,13 +70,13 @@ final class HashFsServerProtocol extends ServerProtocol<HashFsServer> {
 			public void onMessage(HashFsCommands.Alive item, final Messaging<FsResponse> messaging) {
 				server.showAlive(new ResultCallback<Set<ServerInfo>>() {
 					@Override
-					public void onResult(Set<ServerInfo> result) {
+					protected void onResult(Set<ServerInfo> result) {
 						messaging.sendMessage(new HashFsResponses.ListServers(result));
 						messaging.shutdown();
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						messaging.sendMessage(new Err(e.getMessage()));
 						messaging.shutdown();
 					}
@@ -91,13 +91,13 @@ final class HashFsServerProtocol extends ServerProtocol<HashFsServer> {
 			public void onMessage(HashFsCommands.Offer item, final Messaging<FsResponse> messaging) {
 				server.checkOffer(item.forUpload, item.forDeletion, new ResultCallback<List<String>>() {
 					@Override
-					public void onResult(List<String> result) {
+					protected void onResult(List<String> result) {
 						messaging.sendMessage(new HashFsResponses.ListFiles(result));
 						messaging.shutdown();
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						messaging.sendMessage(new Err(e.getMessage()));
 						messaging.shutdown();
 					}

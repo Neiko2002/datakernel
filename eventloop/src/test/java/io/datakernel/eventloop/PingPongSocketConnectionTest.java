@@ -107,13 +107,13 @@ public class PingPongSocketConnectionTest {
 
 		eventloop.connect(new InetSocketAddress("localhost", PORT), new SocketSettings(), new ConnectCallback() {
 					@Override
-					public void onConnect(SocketChannel socketChannel) {
+					protected void onConnect(SocketChannel socketChannel) {
 						PingPongConnection pingPongConnection = PingPongConnection.clientConnection(eventloop, socketChannel, PING, PONG, ITERATIONS);
 						pingPongConnection.register();
 					}
 
 					@Override
-					public void onException(Exception exception) {
+					protected void onException(Exception exception) {
 						fail("Exception: " + exception);
 					}
 				}

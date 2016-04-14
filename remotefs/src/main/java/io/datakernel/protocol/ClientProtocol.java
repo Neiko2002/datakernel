@@ -110,7 +110,7 @@ public class ClientProtocol {
 		}
 	}
 
-	protected static abstract class ForwardingConnectCallback implements ConnectCallback {
+	protected static abstract class ForwardingConnectCallback extends ConnectCallback {
 		private final ExceptionCallback callback;
 
 		protected ForwardingConnectCallback(ExceptionCallback callback) {
@@ -118,8 +118,8 @@ public class ClientProtocol {
 		}
 
 		@Override
-		public void onException(Exception e) {
-			callback.onException(e);
+		protected void onException(Exception e) {
+			callback.fireException(e);
 		}
 	}
 
@@ -201,7 +201,7 @@ public class ClientProtocol {
 	                                                final CompletionCallback callback) {
 		return new ForwardingConnectCallback(callback) {
 			@Override
-			public void onConnect(SocketChannel channel) {
+			protected void onConnect(SocketChannel channel) {
 				SocketConnection connection = createConnection(channel)
 						.addStarter(new MessagingStarter<FsCommand>() {
 							@Override
@@ -218,14 +218,14 @@ public class ClientProtocol {
 								producer.streamTo(byteChunker.getInput());
 								messaging.write(byteChunker.getOutput(), new CompletionCallback() {
 									@Override
-									public void onComplete() {
+									protected void onComplete() {
 										logger.info("Finished streaming {}", fileName);
 									}
 
 									@Override
-									public void onException(Exception e) {
+									protected void onException(Exception e) {
 										logger.info("Failed to stream {}", fileName);
-										callback.onException(e);
+										callback.fireException(e);
 									}
 								});
 							}
@@ -235,7 +235,7 @@ public class ClientProtocol {
 							public void onMessage(FsResponses.Acknowledge item, Messaging<FsCommand> messaging) {
 								logger.trace("Received acknowledge for {}", fileName);
 								messaging.shutdown();
-								callback.onComplete();
+								callback.complete();
 							}
 						})
 						.addHandler(Err.class, new MessagingHandler<Err, FsCommand>() {
@@ -243,14 +243,14 @@ public class ClientProtocol {
 							public void onMessage(Err item, Messaging<FsCommand> messaging) {
 								logger.trace("Failed to upload file {}", fileName);
 								messaging.shutdown();
-								callback.onException(new Exception(item.msg));
+								callback.fireException(new Exception(item.msg));
 							}
 						})
 						.addReadExceptionHandler(new MessagingExceptionHandler() {
 							@Override
 							public void onException(Exception e) {
 								logger.trace("Caught exception in stream while uploading file {}", fileName);
-								callback.onException(e);
+								callback.fireException(e);
 							}
 						});
 				connection.register();
@@ -262,7 +262,7 @@ public class ClientProtocol {
 	                                                  final ResultCallback<StreamTransformerWithCounter> callback) {
 		return new ForwardingConnectCallback(callback) {
 			@Override
-			public void onConnect(SocketChannel channel) {
+			protected void onConnect(SocketChannel channel) {
 				SocketConnection connection = createConnection(channel)
 						.addStarter(new MessagingStarter<FsCommand>() {
 							@Override
@@ -277,7 +277,7 @@ public class ClientProtocol {
 								logger.trace("Received acknowledge for {} bytes ready", item.size);
 								StreamTransformerWithCounter counter = new StreamTransformerWithCounter(eventloop, item.size - startPosition);
 								messaging.read().streamTo(counter.getInput());
-								callback.onResult(counter);
+								callback.sendResult(counter);
 								messaging.shutdown();
 							}
 						})
@@ -287,14 +287,14 @@ public class ClientProtocol {
 								logger.trace("Can't download file {}", item.msg);
 								messaging.shutdown();
 								Exception e = new Exception(item.msg);
-								callback.onException(e);
+								callback.fireException(e);
 							}
 						})
 						.addReadExceptionHandler(new MessagingExceptionHandler() {
 							@Override
 							public void onException(Exception e) {
 								logger.trace("Stream exception while downloading file {}", fileName);
-								callback.onException(e);
+								callback.fireException(e);
 							}
 						});
 				connection.register();
@@ -305,7 +305,7 @@ public class ClientProtocol {
 	protected ConnectCallback deleteConnectCallback(final String fileName, final CompletionCallback callback) {
 		return new ForwardingConnectCallback(callback) {
 			@Override
-			public void onConnect(SocketChannel channel) {
+			protected void onConnect(SocketChannel channel) {
 				SocketConnection connection = createConnection(channel)
 						.addStarter(new MessagingStarter<FsCommand>() {
 							@Override
@@ -319,7 +319,7 @@ public class ClientProtocol {
 							public void onMessage(FsResponses.Ok item, Messaging<FsCommand> messaging) {
 								logger.trace("File {} successfully deleted", fileName);
 								messaging.shutdown();
-								callback.onComplete();
+								callback.complete();
 							}
 						})
 						.addHandler(Err.class, new MessagingHandler<Err, FsCommand>() {
@@ -327,14 +327,14 @@ public class ClientProtocol {
 							public void onMessage(Err item, Messaging<FsCommand> messaging) {
 								logger.trace("Can't delete file {}, reason: {}", fileName, item.msg);
 								messaging.shutdown();
-								callback.onException(new Exception(item.msg));
+								callback.fireException(new Exception(item.msg));
 							}
 						})
 						.addReadExceptionHandler(new MessagingExceptionHandler() {
 							@Override
 							public void onException(Exception e) {
 								logger.trace("Stream exception while deleting file {}", fileName);
-								callback.onException(e);
+								callback.fireException(e);
 							}
 						});
 				connection.register();
@@ -345,7 +345,7 @@ public class ClientProtocol {
 	protected ConnectCallback listFilesConnectCallback(final ResultCallback<List<String>> callback) {
 		return new ForwardingConnectCallback(callback) {
 			@Override
-			public void onConnect(SocketChannel channel) {
+			protected void onConnect(SocketChannel channel) {
 				SocketConnection connection = createConnection(channel)
 						.addStarter(new MessagingStarter<FsCommand>() {
 							@Override
@@ -359,7 +359,7 @@ public class ClientProtocol {
 							public void onMessage(ListFiles item, Messaging<FsCommand> messaging) {
 								logger.trace("Received list of files: {}", item.files.size());
 								messaging.shutdown();
-								callback.onResult(item.files);
+								callback.sendResult(item.files);
 							}
 						})
 						.addHandler(Err.class, new MessagingHandler<Err, FsCommand>() {
@@ -367,14 +367,14 @@ public class ClientProtocol {
 							public void onMessage(Err item, Messaging<FsCommand> messaging) {
 								logger.trace("Server can't list files {}", item.msg);
 								messaging.shutdown();
-								callback.onException(new Exception(item.msg));
+								callback.fireException(new Exception(item.msg));
 							}
 						})
 						.addReadExceptionHandler(new MessagingExceptionHandler() {
 							@Override
 							public void onException(Exception e) {
 								logger.trace("Stream exception while requesting list of files");
-								callback.onException(e);
+								callback.fireException(e);
 							}
 						});
 				connection.register();

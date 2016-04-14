@@ -111,13 +111,13 @@ final class LogicImpl implements Logic {
 	public void start(final CompletionCallback callback) {
 		commands.scan(new ForwardingResultCallback<List<String>>(callback) {
 			@Override
-			public void onResult(List<String> result) {
+			protected void onResult(List<String> result) {
 				for (String s : result) {
 					files.put(s, new FileInfo(myId));
 				}
 				commands.updateServerMap(servers);
 				commands.scheduleUpdate();
-				callback.onComplete();
+				callback.complete();
 			}
 		});
 	}
@@ -133,7 +133,7 @@ final class LogicImpl implements Logic {
 		}
 		files.clear();
 		servers.clear();
-		callback.onComplete();
+		callback.complete();
 	}
 
 	@Override
@@ -239,7 +239,7 @@ final class LogicImpl implements Logic {
 			}
 		}
 		aliveServers.add(myId);
-		callback.onResult(aliveServers);
+		callback.sendResult(aliveServers);
 	}
 
 	@Override
@@ -281,7 +281,7 @@ final class LogicImpl implements Logic {
 				required.add(fileName);
 			}
 		}
-		callback.onResult(required);
+		callback.sendResult(required);
 	}
 
 	@Override
@@ -358,7 +358,7 @@ final class LogicImpl implements Logic {
 
 			commands.offer(server, forUpload, forDeletion, new ResultCallback<List<String>>() {
 				@Override
-				public void onResult(List<String> result) {
+				protected void onResult(List<String> result) {
 					// assume that all of suggested files being rejected exist at remote server
 					for (String file : forUpload) {
 						if (!result.contains(file)) {
@@ -376,7 +376,7 @@ final class LogicImpl implements Logic {
 				}
 
 				@Override
-				public void onException(Exception ignored) {
+				protected void onException(Exception ignored) {
 					// nothing to do: either remote server shut down or internal Exception
 				}
 			});
@@ -394,7 +394,7 @@ final class LogicImpl implements Logic {
 			}
 			files.clear();
 			servers.clear();
-			onStopCallback.onComplete();
+			onStopCallback.complete();
 		}
 	}
 

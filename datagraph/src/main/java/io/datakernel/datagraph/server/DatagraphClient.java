@@ -70,7 +70,7 @@ public final class DatagraphClient {
 	                              @Nullable final MessagingStarter<DatagraphCommand> starter) {
 		eventloop.connect(address, socketSettings, new ConnectCallback() {
 			@Override
-			public void onConnect(SocketChannel socketChannel) {
+			protected void onConnect(SocketChannel socketChannel) {
 				StreamMessagingConnection<DatagraphResponse, DatagraphCommand> connection = new StreamMessagingConnection<>(eventloop, socketChannel,
 						new StreamGsonDeserializer<>(eventloop, serialization.gson, DatagraphResponse.class, 256 * 1024),
 						new StreamGsonSerializer<>(eventloop, serialization.gson, DatagraphCommand.class, 256 * 1024, 256 * (1 << 20), 0))
@@ -87,7 +87,7 @@ public final class DatagraphClient {
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				// TODO (dvolvach)
 			}
 		});

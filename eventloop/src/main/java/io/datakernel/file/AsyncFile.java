@@ -198,18 +198,18 @@ public final class AsyncFile {
 	                            Path path, final ResultCallback<ByteBuf> callback) {
 		open(eventloop, executor, path, new OpenOption[]{READ}, new ForwardingResultCallback<AsyncFile>(callback) {
 			@Override
-			public void onResult(final AsyncFile file) {
+			protected void onResult(final AsyncFile file) {
 				file.readFully(new ForwardingResultCallback<ByteBuf>(callback) {
 					@Override
-					public void onResult(ByteBuf buf) {
+					protected void onResult(ByteBuf buf) {
 						file.close(ignoreCompletionCallback());
-						callback.onResult(buf);
+						callback.sendResult(buf);
 					}
 
 					@Override
-					public void onException(Exception exception) {
+					protected void onException(Exception exception) {
 						file.close(ignoreCompletionCallback());
-						callback.onException(exception);
+						callback.fireException(exception);
 					}
 				});
 			}
@@ -229,18 +229,18 @@ public final class AsyncFile {
 	                                         Path path, final ByteBuf buf, final CompletionCallback callback) {
 		open(eventloop, executor, path, new OpenOption[]{WRITE, CREATE_NEW}, new ForwardingResultCallback<AsyncFile>(callback) {
 			@Override
-			public void onResult(AsyncFile file) {
+			protected void onResult(AsyncFile file) {
 				file.writeFully(buf, 0L, new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						buf.recycle();
-						callback.onComplete();
+						callback.complete();
 					}
 
 					@Override
-					public void onException(Exception exception) {
+					protected void onException(Exception exception) {
 						buf.recycle();
-						callback.onException(exception);
+						callback.fireException(exception);
 					}
 				});
 			}
@@ -266,7 +266,7 @@ public final class AsyncFile {
 					@Override
 					public void run() {
 						tracker.complete();
-						callback.onResult(result);
+						callback.sendResult(result);
 					}
 				});
 			}
@@ -277,7 +277,7 @@ public final class AsyncFile {
 					@Override
 					public void run() {
 						tracker.complete();
-						callback.onException(exc instanceof Exception ? (Exception) exc : new Exception(exc));
+						callback.fireException(exc instanceof Exception ? (Exception) exc : new Exception(exc));
 					}
 				});
 			}
@@ -302,7 +302,7 @@ public final class AsyncFile {
 					@Override
 					public void run() {
 						tracker.complete();
-						callback.onResult(result);
+						callback.sendResult(result);
 					}
 				});
 			}
@@ -313,7 +313,7 @@ public final class AsyncFile {
 					@Override
 					public void run() {
 						tracker.complete();
-						callback.onException(exc instanceof Exception ? (Exception) exc : new Exception(exc));
+						callback.fireException(exc instanceof Exception ? (Exception) exc : new Exception(exc));
 					}
 				});
 			}
@@ -332,7 +332,7 @@ public final class AsyncFile {
 						@Override
 						public void run() {
 							tracker.complete();
-							callback.onComplete();
+							callback.complete();
 						}
 					});
 				} else {
@@ -350,7 +350,7 @@ public final class AsyncFile {
 					@Override
 					public void run() {
 						tracker.complete();
-						callback.onException(exc instanceof Exception ? (Exception) exc : new Exception(exc));
+						callback.fireException(exc instanceof Exception ? (Exception) exc : new Exception(exc));
 					}
 				});
 			}
@@ -390,7 +390,7 @@ public final class AsyncFile {
 						@Override
 						public void run() {
 							tracker.complete();
-							callback.onComplete();
+							callback.complete();
 						}
 					});
 				} else {
@@ -408,7 +408,7 @@ public final class AsyncFile {
 					@Override
 					public void run() {
 						tracker.complete();
-						callback.onException(exc instanceof Exception ? (Exception) exc : new Exception(exc));
+						callback.fireException(exc instanceof Exception ? (Exception) exc : new Exception(exc));
 					}
 				});
 			}
@@ -429,7 +429,7 @@ public final class AsyncFile {
 		try {
 			size = channel.size();
 		} catch (IOException e) {
-			callback.onException(e);
+			callback.fireException(e);
 			return AsyncCallbacks.notCancellable();
 		}
 
@@ -456,7 +456,7 @@ public final class AsyncFile {
 		try {
 			size = channel.size();
 		} catch (IOException e) {
-			callback.onException(e);
+			callback.fireException(e);
 			return;
 		}
 
@@ -464,15 +464,15 @@ public final class AsyncFile {
 		buf.limit((int) size);
 		readFully(buf, 0, new ForwardingCompletionCallback(callback) {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				buf.flip();
-				callback.onResult(buf);
+				callback.sendResult(buf);
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				buf.recycle();
-				callback.onException(exception);
+				callback.fireException(exception);
 			}
 		});
 	}

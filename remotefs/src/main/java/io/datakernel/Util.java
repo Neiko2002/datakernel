@@ -34,14 +34,14 @@ public class Util {
 			int failed = 0;
 
 			@Override
-			public void onResult(T result) {
+			protected void onResult(T result) {
 				results.add(result);
 				completed++;
 				onComplete();
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				failed++;
 				onComplete();
 			}

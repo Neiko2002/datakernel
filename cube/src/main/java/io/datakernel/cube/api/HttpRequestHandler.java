@@ -53,7 +53,7 @@ public final class HttpRequestHandler implements RequestHandler {
 			final ReportingQuery reportingQuery = httpRequestProcessor.apply(httpRequest);
 			requestExecutor.execute(reportingQuery, new ResultCallback<QueryResult>() {
 				@Override
-				public void onResult(QueryResult result) {
+				protected void onResult(QueryResult result) {
 					Stopwatch resultProcessingStopwatch = Stopwatch.createStarted();
 					HttpResponse httpResponse = httpResultProcessor.apply(result);
 					logger.info("Processed request {} ({}) [totalTime={}, jsonConstruction={}]", httpRequest,
@@ -62,7 +62,7 @@ public final class HttpRequestHandler implements RequestHandler {
 				}
 
 				@Override
-				public void onException(Exception e) {
+				protected void onException(Exception e) {
 					logger.error("Executing query {} failed.", reportingQuery, e);
 					resultCallback.onHttpError(new HttpServletError(500, e));
 				}

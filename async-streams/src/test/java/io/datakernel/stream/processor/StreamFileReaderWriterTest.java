@@ -51,6 +51,7 @@ import static java.lang.Math.min;
 import static java.nio.file.StandardOpenOption.READ;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 public class StreamFileReaderWriterTest {
 	Eventloop eventloop;
@@ -70,22 +71,7 @@ public class StreamFileReaderWriterTest {
 		eventloop.run();
 		assertEquals(CLOSED_WITH_ERROR, reader.getProducerStatus());
 		assertEquals(CLOSED_WITH_ERROR, writer.getConsumerStatus());
-		assertEquals(Files.exists(Paths.get("test/outWriterWithError.dat")), false);
-		assertEquals(getPoolItemsString(), ByteBufPool.getCreatedItems(), ByteBufPool.getPoolItems());
-	}
-
-	@Test
-	public void testStreamReaderOnCloseWithError() throws IOException {
-		final File tempFile = tempFolder.newFile("outReaderWithError.dat");
-		final StreamFileWriter writer = StreamFileWriter.create(eventloop, executor,
-				Paths.get(tempFile.getAbsolutePath()));
-
-		reader.streamTo(writer);
-		eventloop.run();
-
-		assertEquals(CLOSED_WITH_ERROR, reader.getProducerStatus());
-		assertEquals(CLOSED_WITH_ERROR, writer.getConsumerStatus());
-		assertArrayEquals(com.google.common.io.Files.toByteArray(tempFile), "Test".getBytes());
+		assertFalse(Files.exists(Paths.get("test/outWriterWithError.dat")));
 		assertEquals(getPoolItemsString(), ByteBufPool.getCreatedItems(), ByteBufPool.getPoolItems());
 	}
 
@@ -334,7 +320,7 @@ public class StreamFileReaderWriterTest {
 
 			asyncFile.read(buf, position, new ResultCallback<Integer>() {
 				@Override
-				public void onResult(Integer result) {
+				protected void onResult(Integer result) {
 					if (getProducerStatus().isClosed()) {
 						buf.recycle();
 						doCleanup();
@@ -357,7 +343,7 @@ public class StreamFileReaderWriterTest {
 				}
 
 				@Override
-				public void onException(Exception e) {
+				protected void onException(Exception e) {
 					buf.recycle();
 					doCleanup();
 					closeWithError(e);
@@ -405,14 +391,14 @@ public class StreamFileReaderWriterTest {
 			pendingAsyncOperation = true;
 			AsyncFile.open(eventloop, executor, path, new OpenOption[]{READ}, new ResultCallback<AsyncFile>() {
 				@Override
-				public void onResult(AsyncFile file) {
+				protected void onResult(AsyncFile file) {
 					pendingAsyncOperation = false;
 					asyncFile = file;
 					postFlush();
 				}
 
 				@Override
-				public void onException(Exception exception) {
+				protected void onException(Exception exception) {
 					closeWithError(exception);
 				}
 			});

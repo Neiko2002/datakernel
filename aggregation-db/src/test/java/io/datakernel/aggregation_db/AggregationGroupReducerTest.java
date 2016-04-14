@@ -98,12 +98,12 @@ public class AggregationGroupReducerTest {
 		final List<List<AggregationChunk.NewChunk>> listCallback = new ArrayList<>();
 		ResultCallback<List<AggregationChunk.NewChunk>> chunksCallback = new ResultCallback<List<AggregationChunk.NewChunk>>() {
 			@Override
-			public void onResult(List<AggregationChunk.NewChunk> result) {
+			protected void onResult(List<AggregationChunk.NewChunk> result) {
 				listCallback.add(result);
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				fail(exception.getMessage());
 			}
 		};
@@ -185,12 +185,12 @@ public class AggregationGroupReducerTest {
 		final List<List<AggregationChunk.NewChunk>> listCallback = new ArrayList<>();
 		ResultCallback<List<AggregationChunk.NewChunk>> chunksCallback = new ResultCallback<List<AggregationChunk.NewChunk>>() {
 			@Override
-			public void onResult(List<AggregationChunk.NewChunk> result) {
+			protected void onResult(List<AggregationChunk.NewChunk> result) {
 				listCallback.add(result);
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 //				fail(exception.getMessage()); // TODO (dtkachenko): uncomment?
 			}
 		};

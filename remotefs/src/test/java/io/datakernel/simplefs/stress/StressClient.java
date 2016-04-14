@@ -85,12 +85,12 @@ public class StressClient {
 
 					client.upload(fileName, producer, new CompletionCallback() {
 						@Override
-						public void onComplete() {
+						protected void onComplete() {
 							logger.info("Uploaded: " + fileName);
 						}
 
 						@Override
-						public void onException(Exception e) {
+						protected void onException(Exception e) {
 							logger.info("Failed to upload: {}", e.getMessage());
 						}
 					});
@@ -115,23 +115,23 @@ public class StressClient {
 					final StreamFileWriter consumer = StreamFileWriter.create(eventloop, executor, downloads.resolve(fileName));
 					consumer.setFlushCallback(new CompletionCallback() {
 						@Override
-						public void onComplete() {
+						protected void onComplete() {
 							logger.info("Downloaded: " + fileName);
 						}
 
 						@Override
-						public void onException(Exception e) {
+						protected void onException(Exception e) {
 							logger.info("Failed to download: {}", e.getMessage());
 						}
 					});
 					client.download(fileName, 0, new ResultCallback<StreamTransformerWithCounter>() {
 						@Override
-						public void onResult(StreamTransformerWithCounter result) {
+						protected void onResult(StreamTransformerWithCounter result) {
 							result.getOutput().streamTo(consumer);
 						}
 
 						@Override
-						public void onException(Exception exception) {
+						protected void onException(Exception exception) {
 							throw new RuntimeException();
 						}
 					});
@@ -153,13 +153,13 @@ public class StressClient {
 
 				client.delete(fileName, new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						existingClientFiles.remove(fileName);
 						logger.info("Deleted: " + fileName);
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						logger.info("Failed to delete: {}", e.getMessage());
 					}
 				});
@@ -172,12 +172,12 @@ public class StressClient {
 			public void go() {
 				client.list(new ResultCallback<List<String>>() {
 					@Override
-					public void onResult(List<String> result) {
+					protected void onResult(List<String> result) {
 						logger.info("Listed: " + result.size());
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						logger.info("Failed to list files: {}", e.getMessage());
 					}
 				});
@@ -249,17 +249,17 @@ public class StressClient {
 		final String name = "someName" + i;
 		client.download(name, 0, new ResultCallback<StreamTransformerWithCounter>() {
 			@Override
-			public void onResult(StreamTransformerWithCounter result) {
+			protected void onResult(StreamTransformerWithCounter result) {
 				try {
 					StreamFileWriter writer = StreamFileWriter.create(eventloop, executor, downloads.resolve(name));
 					result.getOutput().streamTo(writer);
 				} catch (IOException e) {
-					this.onException(e);
+					this.fireException(e);
 				}
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				throw new RuntimeException(e);
 			}
 		});

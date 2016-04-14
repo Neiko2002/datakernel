@@ -260,19 +260,19 @@ public class HashFsServer extends FsServer implements Commands, EventloopService
 			serverProtocol.listen();
 			logic.start(new CompletionCallback() {
 				@Override
-				public void onComplete() {
+				protected void onComplete() {
 					state = State.RUNNING;
-					callback.onComplete();
+					callback.complete();
 				}
 
 				@Override
-				public void onException(Exception e) {
+				protected void onException(Exception e) {
 					serverProtocol.close();
-					callback.onException(e);
+					callback.fireException(e);
 				}
 			});
 		} catch (IOException e) {
-			callback.onException(e);
+			callback.fireException(e);
 		}
 	}
 
@@ -282,9 +282,9 @@ public class HashFsServer extends FsServer implements Commands, EventloopService
 		state = State.SHUTDOWN;
 		logic.stop(new ForwardingCompletionCallback(callback) {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				serverProtocol.close();
-				callback.onComplete();
+				callback.complete();
 			}
 		});
 	}
@@ -298,29 +298,29 @@ public class HashFsServer extends FsServer implements Commands, EventloopService
 			logic.onUploadStart(fileName);
 			fileSystem.save(fileName, new ResultCallback<AsyncFile>() {
 				@Override
-				public void onResult(AsyncFile result) {
+				protected void onResult(AsyncFile result) {
 					StreamFileWriter writer = StreamFileWriter.create(eventloop, result);
 					producer.streamTo(writer);
 					writer.setFlushCallback(new ForwardingCompletionCallback(this) {
 						@Override
-						public void onComplete() {
+						protected void onComplete() {
 							logger.info("Uploaded {}", fileName);
 							logic.onUploadComplete(fileName);
-							callback.onComplete();
+							callback.complete();
 						}
 					});
 				}
 
 				@Override
-				public void onException(Exception e) {
+				protected void onException(Exception e) {
 					logger.error("Failed upload to temporary {}", fileName);
 					logic.onUploadFailed(fileName);
-					callback.onException(e);
+					callback.fireException(e);
 				}
 			});
 		} else {
 			logger.warn("Refused upload {}", fileName);
-			callback.onException(new Exception("Can't upload file"));
+			callback.fireException(new Exception("Can't upload file"));
 		}
 	}
 
@@ -334,12 +334,12 @@ public class HashFsServer extends FsServer implements Commands, EventloopService
 			logic.onDownloadStart(fileName);
 			fileSystem.get(fileName, new ResultCallback<AsyncFile>() {
 				@Override
-				public void onResult(AsyncFile result) {
+				protected void onResult(AsyncFile result) {
 					StreamFileReader reader = StreamFileReader.readFileFrom(eventloop, result, bufferSize, startPosition);
-					callback.onResult(reader);
+					callback.sendResult(reader);
 					reader.setPositionCallback(new ForwardingResultCallback<Long>(this) {
 						@Override
-						public void onResult(Long result) {
+						protected void onResult(Long result) {
 							logger.info("File {} send successfully {} bytes", fileName, result);
 							logic.onDownloadComplete(fileName);
 						}
@@ -347,14 +347,14 @@ public class HashFsServer extends FsServer implements Commands, EventloopService
 				}
 
 				@Override
-				public void onException(Exception exception) {
+				protected void onException(Exception exception) {
 					logger.error("Can't send the file {}", fileName);
 					logic.onDownloadFailed(fileName);
 				}
 			});
 		} else {
 			logger.warn("Refused download {}", fileName);
-			callback.onException(new Exception("Can't download"));
+			callback.fireException(new Exception("Can't download"));
 		}
 	}
 
@@ -368,22 +368,22 @@ public class HashFsServer extends FsServer implements Commands, EventloopService
 			logic.onDeletionStart(fileName);
 			fileSystem.delete(fileName, new CompletionCallback() {
 				@Override
-				public void onComplete() {
+				protected void onComplete() {
 					logger.info("Successfully deleted {}", fileName);
 					logic.onDeleteComplete(fileName);
-					callback.onComplete();
+					callback.complete();
 				}
 
 				@Override
-				public void onException(Exception e) {
+				protected void onException(Exception e) {
 					logger.error("Can't delete file {}", fileName);
 					logic.onDeleteFailed(fileName);
-					callback.onException(e);
+					callback.fireException(e);
 				}
 			});
 		} else {
 			logger.warn("Refused file deletion {}", fileName);
-			callback.onException(new Exception("Can't delete file"));
+			callback.fireException(new Exception("Can't delete file"));
 		}
 	}
 
@@ -410,7 +410,7 @@ public class HashFsServer extends FsServer implements Commands, EventloopService
 
 		if (state != State.RUNNING) {
 			logger.trace("Refused checking offer. Server is down.");
-			callback.onException(new Exception("Server is down"));
+			callback.fireException(new Exception("Server is down"));
 			return;
 		}
 
@@ -423,11 +423,11 @@ public class HashFsServer extends FsServer implements Commands, EventloopService
 		logic.onReplicationStart(fileName);
 		fileSystem.get(fileName, new ResultCallback<AsyncFile>() {
 			@Override
-			public void onResult(AsyncFile result) {
+			protected void onResult(AsyncFile result) {
 				StreamFileReader reader = StreamFileReader.readFileFully(eventloop, result, bufferSize);
 				clientProtocol.upload(server.getAddress(), fileName, reader, new ForwardingCompletionCallback(this) {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						logger.info("Successfully replicated file {} to server {}", fileName, server);
 						logic.onReplicationComplete(server, fileName);
 					}
@@ -435,7 +435,7 @@ public class HashFsServer extends FsServer implements Commands, EventloopService
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				logger.error("Failed to replicate file {} to server {}", fileName, server, e);
 				logic.onReplicationFailed(server, fileName);
 			}
@@ -447,12 +447,12 @@ public class HashFsServer extends FsServer implements Commands, EventloopService
 		logger.info("Received command to delete file {}", fileName);
 		fileSystem.delete(fileName, new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				logger.info("File {} deleted by server", fileName);
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				logger.error("Can't delete file {} by server", fileName, e);
 			}
 		});
@@ -477,7 +477,7 @@ public class HashFsServer extends FsServer implements Commands, EventloopService
 		for (final ServerInfo server : bootstrap) {
 			clientProtocol.alive(server.getAddress(), new ResultCallback<Set<ServerInfo>>() {
 				@Override
-				public void onResult(Set<ServerInfo> result) {
+				protected void onResult(Set<ServerInfo> result) {
 					logger.trace("Received {} alive servers from {}", result.size(), server);
 					possiblyUp.addAll(result);
 					counter[0]--;
@@ -490,7 +490,7 @@ public class HashFsServer extends FsServer implements Commands, EventloopService
 				}
 
 				@Override
-				public void onException(Exception ignored) {
+				protected void onException(Exception ignored) {
 					possiblyDown.add(server);
 					logger.warn("Server {} doesn't answer", server);
 					counter[0]--;

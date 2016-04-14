@@ -240,12 +240,12 @@ public final class Cube implements EventloopJmxMBean {
 			StreamConsumer<T> groupReducer = aggregation.consumer(inputClass, aggregationMeasures, outputToInputFields,
 					new ResultCallback<List<AggregationChunk.NewChunk>>() {
 						@Override
-						public void onResult(List<AggregationChunk.NewChunk> chunks) {
+						protected void onResult(List<AggregationChunk.NewChunk> chunks) {
 							tracker.completeWithResults(aggregation.getAggregationMetadata(), chunks);
 						}
 
 						@Override
-						public void onException(Exception e) {
+						protected void onException(Exception e) {
 							tracker.completeWithException(e);
 						}
 					});
@@ -397,13 +397,13 @@ public final class Cube implements EventloopJmxMBean {
 		if (iterator.hasNext()) {
 			iterator.next().loadChunks(new ForwardingCompletionCallback(callback) {
 				@Override
-				public void onComplete() {
+				protected void onComplete() {
 					loadChunks(iterator, callback);
 				}
 			});
 		} else {
 			logger.info("Loading chunks completed");
-			callback.onComplete();
+			callback.complete();
 		}
 	}
 
@@ -426,15 +426,15 @@ public final class Cube implements EventloopJmxMBean {
 					final Aggregation aggregation = iterator.next();
 					aggregation.loadChunks(new CompletionCallback() {
 						@Override
-						public void onComplete() {
+						protected void onComplete() {
 							aggregation.consolidate(maxChunksToConsolidate, preferHotSegmentsCoef, new ResultCallback<Boolean>() {
 								@Override
-								public void onResult(Boolean result) {
+								protected void onResult(Boolean result) {
 									consolidate(maxChunksToConsolidate, preferHotSegmentsCoef, result || found, iterator, callback);
 								}
 
 								@Override
-								public void onException(Exception exception) {
+								protected void onException(Exception exception) {
 									logger.error("Consolidating aggregation '{}' failed", aggregation, exception);
 									consolidate(maxChunksToConsolidate, preferHotSegmentsCoef, found, iterator, callback);
 								}
@@ -442,13 +442,13 @@ public final class Cube implements EventloopJmxMBean {
 						}
 
 						@Override
-						public void onException(Exception exception) {
+						protected void onException(Exception exception) {
 							logger.error("Loading chunks for aggregation '{}' before starting consolidation failed", aggregation, exception);
 							consolidate(maxChunksToConsolidate, preferHotSegmentsCoef, found, iterator, callback);
 						}
 					});
 				} else {
-					callback.onResult(found);
+					callback.sendResult(found);
 				}
 			}
 		});

@@ -113,56 +113,56 @@ public class IntegrationSingleNodeTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				logger.info("Server started");
 				client.upload("this/is/a.txt", producerA, new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						logger.info("Uploaded this/is/a.txt");
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						logger.error("Failed to upload file this/is/a.txt", e);
 					}
 				});
 				client.upload("this/is/b.txt", producerB, new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						logger.info("Uploaded this/is/b.txt");
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						logger.error("Failed to upload file this/is/b.txt", e);
 					}
 				});
 				client.upload("c.txt", producerC, new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						logger.info("Uploaded this/is/b.txt");
 						server.stop(new CompletionCallback() {
 							@Override
-							public void onComplete() {
+							protected void onComplete() {
 								logger.info("Server stooped");
 							}
 
 							@Override
-							public void onException(Exception e) {
+							protected void onException(Exception e) {
 								logger.info("Can't stop the server", e);
 							}
 						});
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						logger.error("Failed to upload file this/is/b.txt", e);
 					}
 				});
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				logger.error("Didn't manage to start the server", e);
 			}
 		});
@@ -188,7 +188,7 @@ public class IntegrationSingleNodeTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				client.upload("non_existing_file.txt", producer, new SimpleCompletionCallback() {
 					@Override
 					public void onCompleteOrException() {
@@ -198,7 +198,7 @@ public class IntegrationSingleNodeTest {
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				logger.error("Didn't manage to start the server", e);
 			}
 		});
@@ -229,18 +229,18 @@ public class IntegrationSingleNodeTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				client.download("this/g.txt", 0, streamTo(consumerG));
 				client.download("e.txt", 0, streamTo(consumerE));
 				client.download("d.txt", startPosition, new ResultCallback<StreamTransformerWithCounter>() {
 					@Override
-					public void onResult(StreamTransformerWithCounter result) {
+					protected void onResult(StreamTransformerWithCounter result) {
 						result.getOutput().streamTo(consumerD);
 						result.setPositionCallback(sizeFuture);
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						throw new RuntimeException(e);
 					}
 				});
@@ -248,32 +248,32 @@ public class IntegrationSingleNodeTest {
 
 				consumerD.setFlushCallback(new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						logger.info("Flushed e");
 						server.stop(new CompletionCallback() {
 							@Override
-							public void onComplete() {
+							protected void onComplete() {
 								logger.info("Stopped");
 							}
 
 							@Override
-							public void onException(Exception e) {
+							protected void onException(Exception e) {
 								logger.error("Can't stop ", e);
 							}
 						});
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						logger.error("Can't flush the file");
 						server.stop(new CompletionCallback() {
 							@Override
-							public void onComplete() {
+							protected void onComplete() {
 								logger.info("Stopped");
 							}
 
 							@Override
-							public void onException(Exception e) {
+							protected void onException(Exception e) {
 								logger.error("Can't stop ", e);
 							}
 						});
@@ -282,7 +282,7 @@ public class IntegrationSingleNodeTest {
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				logger.error("Didn't manage to start the server", e);
 			}
 		});
@@ -307,29 +307,29 @@ public class IntegrationSingleNodeTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				client.download("file_does_not_exist", 0, new ResultCallback<StreamTransformerWithCounter>() {
 					@Override
-					public void onResult(StreamTransformerWithCounter result) {
+					protected void onResult(StreamTransformerWithCounter result) {
 						final StreamFileWriter consumerA;
 						try {
 							consumerA = StreamFileWriter.create(eventloop, executor, clientStorage.resolve("file_should_not exist.txt"));
 							consumerA.setFlushCallback(new CompletionCallback() {
 								@Override
-								public void onComplete() {
+								protected void onComplete() {
 									logger.info("Can't flush the file");
 								}
 
 								@Override
-								public void onException(Exception e) {
+								protected void onException(Exception e) {
 									server.stop(new CompletionCallback() {
 										@Override
-										public void onComplete() {
+										protected void onComplete() {
 											logger.info("Stopped");
 										}
 
 										@Override
-										public void onException(Exception e) {
+										protected void onException(Exception e) {
 											logger.error("Can't stop ", e);
 										}
 									});
@@ -343,15 +343,15 @@ public class IntegrationSingleNodeTest {
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						server.stop(new CompletionCallback() {
 							@Override
-							public void onComplete() {
+							protected void onComplete() {
 								logger.info("Stopped");
 							}
 
 							@Override
-							public void onException(Exception e) {
+							protected void onException(Exception e) {
 								logger.error("Can't stop ", e);
 							}
 						});
@@ -360,7 +360,7 @@ public class IntegrationSingleNodeTest {
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				logger.error("Didn't manage to start the server", e);
 			}
 		});
@@ -382,26 +382,26 @@ public class IntegrationSingleNodeTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				client.delete("this/a.txt", new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						logger.info("Deleted");
 						server.stop(new CompletionCallback() {
 							@Override
-							public void onComplete() {
+							protected void onComplete() {
 								logger.info("Stopped");
 							}
 
 							@Override
-							public void onException(Exception e) {
+							protected void onException(Exception e) {
 								logger.error("Can't stop ", e);
 							}
 						});
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						logger.error("Can't delete file ", e);
 						fail("Can't end here");
 					}
@@ -409,7 +409,7 @@ public class IntegrationSingleNodeTest {
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 
 			}
 		});
@@ -428,25 +428,25 @@ public class IntegrationSingleNodeTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				client.delete("not_exist.txt", new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						logger.info("Impossible situation: deleted non existing file");
 						fail("Can't end here");
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						logger.error("Can't delete file ", e);
 						server.stop(new CompletionCallback() {
 							@Override
-							public void onComplete() {
+							protected void onComplete() {
 								logger.info("Stopped");
 							}
 
 							@Override
-							public void onException(Exception e) {
+							protected void onException(Exception e) {
 								logger.error("Can't stop ", e);
 							}
 						});
@@ -455,7 +455,7 @@ public class IntegrationSingleNodeTest {
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 
 			}
 		});
@@ -477,33 +477,33 @@ public class IntegrationSingleNodeTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				client.list(new ResultCallback<List<String>>() {
 					@Override
-					public void onResult(List<String> result) {
+					protected void onResult(List<String> result) {
 						actual.addAll(result);
 						server.stop(new CompletionCallback() {
 							@Override
-							public void onComplete() {
+							protected void onComplete() {
 								logger.info("Stopped");
 							}
 
 							@Override
-							public void onException(Exception e) {
+							protected void onException(Exception e) {
 								logger.error("Can't stop ", e);
 							}
 						});
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						logger.error("Can't list files");
 					}
 				});
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 
 			}
 		});
@@ -519,12 +519,12 @@ public class IntegrationSingleNodeTest {
 	private ResultCallback<StreamTransformerWithCounter> streamTo(final StreamFileWriter consumerG) {
 		return new ResultCallback<StreamTransformerWithCounter>() {
 			@Override
-			public void onResult(StreamTransformerWithCounter result) {
+			protected void onResult(StreamTransformerWithCounter result) {
 				result.getOutput().streamTo(consumerG);
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				throw new RuntimeException(e);
 			}
 		};

@@ -138,14 +138,14 @@ public class ServerProtocol<S extends FsServer> extends AbstractServer<ServerPro
 				messaging.sendMessage(new FsResponses.Ok());
 				server.upload(item.filePath, messaging.read(), new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						logger.info("Finished streaming data for {}", item.filePath);
 						messaging.sendMessage(new Acknowledge());
 						messaging.shutdown();
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						logger.error("Exception while streaming data for {}", item.filePath);
 						messaging.sendMessage(new Err(e.getMessage()));
 						messaging.shutdown();
@@ -161,7 +161,7 @@ public class ServerProtocol<S extends FsServer> extends AbstractServer<ServerPro
 			public void onMessage(final Download item, final Messaging<FsResponse> messaging) {
 				server.fileSize(item.filePath, new ResultCallback<Long>() {
 					@Override
-					public void onResult(Long size) {
+					protected void onResult(Long size) {
 						if (size < 0) {
 							logger.trace("Responding err to file download: {}. File not found", item.filePath);
 							messaging.sendMessage(new Err("File not found"));
@@ -177,17 +177,17 @@ public class ServerProtocol<S extends FsServer> extends AbstractServer<ServerPro
 
 						server.download(item.filePath, item.startPosition, new ResultCallback<StreamProducer<ByteBuf>>() {
 							@Override
-							public void onResult(StreamProducer<ByteBuf> result) {
+							protected void onResult(StreamProducer<ByteBuf> result) {
 								logger.trace("Opened stream {}", result);
 								messaging.write(result, new CompletionCallback() {
 									@Override
-									public void onComplete() {
+									protected void onComplete() {
 										logger.info("File data for {} has been send", item.filePath);
 										messaging.shutdownWriter();
 									}
 
 									@Override
-									public void onException(Exception e) {
+									protected void onException(Exception e) {
 										logger.error("Failed to send data for: {}", item.filePath, e);
 										messaging.shutdownWriter();
 									}
@@ -195,7 +195,7 @@ public class ServerProtocol<S extends FsServer> extends AbstractServer<ServerPro
 							}
 
 							@Override
-							public void onException(Exception e) {
+							protected void onException(Exception e) {
 								logger.error("Failed to get stream for: {}", item.filePath, e);
 								messaging.shutdown();
 							}
@@ -203,7 +203,7 @@ public class ServerProtocol<S extends FsServer> extends AbstractServer<ServerPro
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						logger.error("Unable to retrieve size for file {}", item.filePath);
 						messaging.sendMessage(new Err(e.getMessage()));
 						messaging.shutdown();
@@ -219,14 +219,14 @@ public class ServerProtocol<S extends FsServer> extends AbstractServer<ServerPro
 			public void onMessage(ListFiles item, final Messaging<FsResponse> messaging) {
 				server.list(new ResultCallback<List<String>>() {
 					@Override
-					public void onResult(List<String> result) {
+					protected void onResult(List<String> result) {
 						logger.trace("Sending list of files to server: {}", result.size());
 						messaging.sendMessage(new FsResponses.ListFiles(result));
 						messaging.shutdown();
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						logger.trace("Can't list files {}", e.getMessage());
 						messaging.sendMessage(new Err(e.getMessage()));
 						messaging.shutdown();
@@ -242,14 +242,14 @@ public class ServerProtocol<S extends FsServer> extends AbstractServer<ServerPro
 			public void onMessage(final Delete item, final Messaging<FsResponse> messaging) {
 				server.delete(item.filePath, new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						logger.trace("Responding ok to file {} deletion", item.filePath);
 						messaging.sendMessage(new FsResponses.Ok());
 						messaging.shutdown();
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						logger.trace("Responding err to file {} deletion", item.filePath);
 						messaging.sendMessage(new Err(e.getMessage()));
 						messaging.shutdown();

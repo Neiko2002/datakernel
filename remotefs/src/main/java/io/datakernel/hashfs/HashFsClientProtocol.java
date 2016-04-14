@@ -94,7 +94,7 @@ final class HashFsClientProtocol extends ClientProtocol {
 	private ConnectCallback aliveConnectCallback(final ResultCallback<Set<ServerInfo>> callback) {
 		return new ForwardingConnectCallback(callback) {
 			@Override
-			public void onConnect(SocketChannel socketChannel) {
+			protected void onConnect(SocketChannel socketChannel) {
 				SocketConnection connection = createConnection(socketChannel)
 						.addStarter(new MessagingStarter<FsCommand>() {
 							@Override
@@ -108,7 +108,7 @@ final class HashFsClientProtocol extends ClientProtocol {
 							public void onMessage(ListServers item, Messaging<FsCommand> messaging) {
 								logger.trace("Received {} alive servers", item.servers.size());
 								messaging.shutdown();
-								callback.onResult(item.servers);
+								callback.sendResult(item.servers);
 							}
 						})
 						.addHandler(Err.class, new MessagingHandler<Err, FsCommand>() {
@@ -117,7 +117,7 @@ final class HashFsClientProtocol extends ClientProtocol {
 								logger.trace("Can't figure out alive servers: {}", item.msg);
 								messaging.shutdown();
 								Exception e = new Exception(item.msg);
-								callback.onException(e);
+								callback.fireException(e);
 							}
 						});
 				connection.register();
@@ -129,7 +129,7 @@ final class HashFsClientProtocol extends ClientProtocol {
 	                                             final ResultCallback<List<String>> callback) {
 		return new ForwardingConnectCallback(callback) {
 			@Override
-			public void onConnect(SocketChannel socketChannel) {
+			protected void onConnect(SocketChannel socketChannel) {
 				SocketConnection connection = createConnection(socketChannel)
 						.addStarter(new MessagingStarter<FsCommand>() {
 							@Override
@@ -143,7 +143,7 @@ final class HashFsClientProtocol extends ClientProtocol {
 							public void onMessage(ListFiles item, Messaging<FsCommand> messaging) {
 								logger.trace("Received response for file offer");
 								messaging.shutdown();
-								callback.onResult(item.files);
+								callback.sendResult(item.files);
 							}
 						})
 						.addHandler(Err.class, new MessagingHandler<Err, FsCommand>() {
@@ -152,7 +152,7 @@ final class HashFsClientProtocol extends ClientProtocol {
 								logger.trace("Can't receive response for file offer");
 								messaging.shutdown();
 								Exception e = new Exception(item.msg);
-								callback.onException(e);
+								callback.fireException(e);
 							}
 						});
 				connection.register();

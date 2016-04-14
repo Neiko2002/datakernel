@@ -169,7 +169,7 @@ public final class HttpRequestsGenerator {
 
 		final ResultCallback<HttpResponse> callback = new ResultCallback<HttpResponse>() {
 			@Override
-			public void onResult(HttpResponse result) {
+			protected void onResult(HttpResponse result) {
 				successfulRequests++;
 				if (options.displayResponse()) {
 					ByteBuf body = result.getBody();
@@ -178,7 +178,7 @@ public final class HttpRequestsGenerator {
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				errorRequests++;
 			}
 		};
@@ -197,7 +197,7 @@ public final class HttpRequestsGenerator {
 		if (!options.permanentProcess()) {
 			if (scheduleTimeMillis != 0 &&
 					(scheduleTimeMillis >= endTimestamp || sentRequests >= (options.processTimeSeconds() * options.requestsPerSecond()))) {
-				completionCallback.onComplete();
+				completionCallback.complete();
 				return;
 			}
 		}

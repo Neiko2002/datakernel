@@ -68,9 +68,9 @@ public class DnsClientHandler extends UdpSocketHandler {
 
 			if (callback != null) {
 				if (dnsQueryResult.isSuccessful()) {
-					callback.onResult(dnsQueryResult);
+					callback.sendResult(dnsQueryResult);
 				} else {
-					callback.onException(dnsQueryResult.getException());
+					callback.fireException(dnsQueryResult.getException());
 				}
 			}
 		} catch (DnsResponseParseException e) {
@@ -84,16 +84,16 @@ public class DnsClientHandler extends UdpSocketHandler {
 	                     final ResultCallback<DnsQueryResult> callback, boolean ipv6) {
 		ResultCallback<DnsQueryResult> timeoutProcessingCallback = new ResultCallback<DnsQueryResult>() {
 			@Override
-			public void onResult(DnsQueryResult result) {
-				callback.onResult(result);
+			protected void onResult(DnsQueryResult result) {
+				callback.sendResult(result);
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				if (exception instanceof TimeoutException)
 					resultHandlers.remove(domainName);
 
-				callback.onException(exception);
+				callback.fireException(exception);
 			}
 		};
 

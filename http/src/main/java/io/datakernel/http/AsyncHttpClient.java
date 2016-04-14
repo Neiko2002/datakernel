@@ -258,14 +258,14 @@ public class AsyncHttpClient implements EventloopService, EventloopJmxMBean {
 	private void getUrlAsync(final HttpRequest request, final int timeout, final ResultCallback<HttpResponse> callback) {
 		dnsClient.resolve4(request.getUrl().getHost(), new ResultCallback<InetAddress[]>() {
 			@Override
-			public void onResult(InetAddress[] inetAddresses) {
-				logger.trace("dnsClient.resolve4.onResult Calling {}", request);
+			protected void onResult(InetAddress[] inetAddresses) {
+				logger.trace("dnsClient.resolve4.sendResult Calling {}", request);
 				getUrlForHostAsync(request, timeout, inetAddresses, callback);
 			}
 
 			@Override
-			public void onException(Exception exception) {
-				logger.trace("dnsClient.resolve4.onException Calling {}", request);
+			protected void onException(Exception exception) {
+				logger.trace("dnsClient.resolve4.fireException Calling {}", request);
 				if (exception.getClass() == DnsException.class || exception.getClass() == TimeoutException.class) {
 					if (logger.isWarnEnabled()) {
 						logger.warn("DNS exception for '{}': {}", request, exception.getMessage());
@@ -276,7 +276,7 @@ public class AsyncHttpClient implements EventloopService, EventloopJmxMBean {
 					}
 				}
 				dnsErrors.recordException(exception, request);
-				callback.onException(exception);
+				callback.fireException(exception);
 			}
 		});
 	}
@@ -289,11 +289,11 @@ public class AsyncHttpClient implements EventloopService, EventloopJmxMBean {
 		String host = request.getUrl().getHost();
 		final InetAddress inetAddress = getNextInetAddress(inetAddresses);
 		if (!isValidHost(host, inetAddress, blockLocalAddresses)) {
-			callback.onException(new IOException("Invalid IP address " + inetAddress + " for host " + host));
+			callback.fireException(new IOException("Invalid IP address " + inetAddress + " for host " + host));
 			return;
 		}
 		if (isBindExceptionBlocked(inetAddress)) {
-			callback.onException(BIND_EXCEPTION);
+			callback.fireException(BIND_EXCEPTION);
 			return;
 		}
 
@@ -309,23 +309,23 @@ public class AsyncHttpClient implements EventloopService, EventloopJmxMBean {
 		logger.trace("eventloop.connect Calling {}", request);
 		eventloop.connect(address, socketSettings, timeout, new ConnectCallback() {
 			@Override
-			public void onConnect(SocketChannel socketChannel) {
-				logger.trace("eventloop.connect.onConnect Calling {}", request);
+			protected void onConnect(SocketChannel socketChannel) {
+				logger.trace("eventloop.connect.reportConnect Calling {}", request);
 				removePendingSocketConnect(address);
 				HttpClientConnection connection = createConnection(socketChannel);
 				connection.register();
 				if (timeoutTime <= eventloop.currentTimeMillis()) {
 					// timeout for this request, reuse for other requests
 					addToIpPool(connection);
-					callback.onException(TIMEOUT_EXCEPTION);
+					callback.fireException(TIMEOUT_EXCEPTION);
 					return;
 				}
 				sendRequest(connection, request, timeoutTime, callback);
 			}
 
 			@Override
-			public void onException(Exception exception) {
-				logger.trace("eventloop.connect.onException Calling {}", request);
+			protected void onException(Exception exception) {
+				logger.trace("eventloop.connect.fireException Calling {}", request);
 				removePendingSocketConnect(address);
 				if (exception instanceof BindException) {
 					if (bindExceptionBlockTimeout != 0) {
@@ -336,7 +336,7 @@ public class AsyncHttpClient implements EventloopService, EventloopJmxMBean {
 				if (logger.isWarnEnabled()) {
 					logger.warn("Connect error to {} : {}", address, exception.getMessage());
 				}
-				callback.onException(exception);
+				callback.fireException(exception);
 			}
 
 			@Override
@@ -439,7 +439,7 @@ public class AsyncHttpClient implements EventloopService, EventloopJmxMBean {
 		checkState(eventloop.inEventloopThread());
 		checkState(!running);
 		running = true;
-		callback.onComplete();
+		callback.complete();
 	}
 
 	/**
@@ -455,7 +455,7 @@ public class AsyncHttpClient implements EventloopService, EventloopJmxMBean {
 			running = false;
 			close();
 		}
-		callback.onComplete();
+		callback.complete();
 	}
 
 	public CompletionCallbackFuture closeFuture() {

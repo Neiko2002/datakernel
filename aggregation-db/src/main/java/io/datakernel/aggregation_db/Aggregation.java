@@ -495,7 +495,7 @@ public class Aggregation {
 				new AsyncFunction<AggregationChunk, StreamProducer<Object>>() {
 					@Override
 					public void apply(AggregationChunk chunk, ResultCallback<StreamProducer<Object>> producerCallback) {
-						producerCallback.onResult(chunkReaderWithFilter(predicates, chunk, sequenceClass));
+						producerCallback.sendResult(chunkReaderWithFilter(predicates, chunk, sequenceClass));
 					}
 				});
 		return StreamProducers.concat(eventloop, producerAsyncIterator);
@@ -582,14 +582,14 @@ public class Aggregation {
 		List<AggregationChunk> chunks = aggregationMetadata.findChunksForConsolidation(maxChunksToConsolidate, preferHotSegmentsCoef);
 
 		if (chunks.isEmpty()) {
-			callback.onResult(false);
+			callback.sendResult(false);
 			return;
 		}
 
 		consolidate(chunks, new ForwardingCompletionCallback(callback) {
 			@Override
-			public void onComplete() {
-				callback.onResult(true);
+			protected void onComplete() {
+				callback.sendResult(true);
 			}
 		});
 	}
@@ -598,25 +598,25 @@ public class Aggregation {
 		logger.info("Starting consolidation of aggregation '{}'", this);
 		metadataStorage.startConsolidation(chunks, new ForwardingCompletionCallback(callback) {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				logger.info("Completed writing consolidation start metadata in aggregation '{}'", Aggregation.this);
 				doConsolidation(chunks, new ForwardingResultCallback<List<AggregationChunk.NewChunk>>(callback) {
 					@Override
-					public void onResult(final List<AggregationChunk.NewChunk> consolidatedChunks) {
+					protected void onResult(final List<AggregationChunk.NewChunk> consolidatedChunks) {
 						logger.info("Saving consolidation results to metadata storage in aggregation '{}'", Aggregation.this);
 						metadataStorage.saveConsolidatedChunks(chunks, consolidatedChunks, new CompletionCallback() {
 							@Override
-							public void onComplete() {
+							protected void onComplete() {
 								logger.info("Completed consolidation of the following chunks " +
 												"in aggregation '{}': [{}]. Created chunks: [{}]",
 										aggregationMetadata, getChunkIds(chunks),
 										getNewChunkIds(consolidatedChunks));
-								callback.onComplete();
+								callback.complete();
 							}
 
 							@Override
-							public void onException(Exception exception) {
-								callback.onException(exception);
+							protected void onException(Exception exception) {
+								callback.fireException(exception);
 							}
 						});
 					}
@@ -653,7 +653,7 @@ public class Aggregation {
 		loadChunksCallback.addListener(callback);
 		metadataStorage.loadChunks(lastRevisionId, new ResultCallback<LoadedChunks>() {
 			@Override
-			public void onResult(LoadedChunks loadedChunks) {
+			protected void onResult(LoadedChunks loadedChunks) {
 				for (AggregationChunk newChunk : loadedChunks.newChunks) {
 					addToIndex(newChunk);
 					logger.trace("Added chunk {} to index", newChunk);
@@ -671,14 +671,14 @@ public class Aggregation {
 						Aggregation.this, loadedChunks.newChunks.size(), loadedChunks.consolidatedChunkIds.size(),
 						loadedChunks.lastRevisionId);
 
-				loadChunksCallback.onComplete();
+				loadChunksCallback.complete();
 				loadChunksCallback = null;
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				logger.error("Loading chunks for aggregation {} failed", this, exception);
-				loadChunksCallback.onException(exception);
+				loadChunksCallback.fireException(exception);
 				loadChunksCallback = null;
 			}
 		});

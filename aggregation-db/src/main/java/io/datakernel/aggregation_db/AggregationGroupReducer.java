@@ -126,7 +126,7 @@ public final class AggregationGroupReducer<T> extends AbstractStreamConsumer<T> 
 				recordClass, storage, metadataStorage, chunkSize,
 				new ResultCallback<List<AggregationChunk.NewChunk>>() {
 					@Override
-					public void onResult(List<AggregationChunk.NewChunk> newChunks) {
+					protected void onResult(List<AggregationChunk.NewChunk> newChunks) {
 						resultsTracker.completeWithResults(newChunks);
 
 						if (resultsTracker.getOperationsCount() <= MAX_OUTPUT_STREAMS)
@@ -134,7 +134,7 @@ public final class AggregationGroupReducer<T> extends AbstractStreamConsumer<T> 
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						logger.error("Streaming to chunker failed", e);
 						closeWithError(e);
 						resultsTracker.completeWithException(e);

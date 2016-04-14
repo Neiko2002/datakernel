@@ -69,7 +69,7 @@ public class StaticServletsTest {
 		StaticServletForFiles servlet = StaticServletForFiles.create(eventloop, executor, resources);
 		servlet.doServeAsync("index.html", new ForwardingResultCallback<ByteBuf>(ignoreResultCallback()) {
 			@Override
-			public void onResult(ByteBuf result) {
+			protected void onResult(ByteBuf result) {
 				res.add(decodeAscii(result));
 			}
 		});

@@ -122,7 +122,7 @@ public final class StreamSorter<K, T> implements StreamTransformer<T, T>, Eventl
 				listOfPartitions.add(storage.nextPartition());
 				storage.write(StreamProducers.ofIterable(eventloop, list), new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						eventloop.post(new Runnable() {
 							@Override
 							public void run() {
@@ -133,7 +133,7 @@ public final class StreamSorter<K, T> implements StreamTransformer<T, T>, Eventl
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						new StreamProducers.ClosingWithError<T>(eventloop, e).streamTo(merger.newInput());
 						closeWithError(e);
 

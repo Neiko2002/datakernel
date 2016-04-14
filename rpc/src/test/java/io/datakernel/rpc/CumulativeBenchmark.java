@@ -70,7 +70,7 @@ public final class CumulativeBenchmark {
 					} else {
 						currentSum.value = 0;
 					}
-					callback.onResult(currentSum);
+					callback.sendResult(currentSum);
 				}
 			})
 			.setListenPort(SERVICE_PORT);
@@ -121,26 +121,26 @@ public final class CumulativeBenchmark {
 		try {
 			final CompletionCallback finishCallback = new CompletionCallback() {
 				@Override
-				public void onException(Exception exception) {
+				protected void onException(Exception exception) {
 					System.err.println("Exception while benchmark: " + exception);
 					client.stop();
 				}
 
 				@Override
-				public void onComplete() {
+				protected void onComplete() {
 					client.stop();
 				}
 			};
 
 			CompletionCallback startCallback = new CompletionCallback() {
 				@Override
-				public void onComplete() {
+				protected void onComplete() {
 					startBenchmarkRound(0, finishCallback);
 				}
 
 				@Override
-				public void onException(Exception exception) {
-					finishCallback.onException(exception);
+				protected void onException(Exception exception) {
+					finishCallback.fireException(exception);
 				}
 			};
 
@@ -168,7 +168,7 @@ public final class CumulativeBenchmark {
 
 	private void startBenchmarkRound(final int roundNumber, final CompletionCallback finishCallback) {
 		if (roundNumber == totalRounds) {
-			finishCallback.onComplete();
+			finishCallback.complete();
 			return;
 		}
 
@@ -180,7 +180,7 @@ public final class CumulativeBenchmark {
 		final Stopwatch stopwatch = Stopwatch.createUnstarted();
 		final CompletionCallback roundComplete = new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				stopwatch.stop();
 				System.out.println((roundNumber + 1) + ": Summary Elapsed " + stopwatch.toString()
 						+ " rps: " + roundRequests * 1000.0 / stopwatch.elapsed(MILLISECONDS)
@@ -195,8 +195,8 @@ public final class CumulativeBenchmark {
 			}
 
 			@Override
-			public void onException(Exception exception) {
-				finishCallback.onException(exception);
+			protected void onException(Exception exception) {
+				finishCallback.fireException(exception);
 			}
 		};
 
@@ -220,7 +220,7 @@ public final class CumulativeBenchmark {
 
 			client.sendRequest(incrementMessage, requestTimeout, new ResultCallback<ValueMessage>() {
 				@Override
-				public void onResult(ValueMessage result) {
+				protected void onResult(ValueMessage result) {
 					success++;
 					lastResponseValue = result.value;
 					tryCompete();
@@ -229,11 +229,11 @@ public final class CumulativeBenchmark {
 				private void tryCompete() {
 					int totalCompletion = success + errors;
 					if (totalCompletion == roundRequests)
-						completionCallback.onComplete();
+						completionCallback.complete();
 				}
 
 				@Override
-				public void onException(Exception exception) {
+				protected void onException(Exception exception) {
 					if (exception.getClass() == RpcException.class) {
 						clientOverloaded = true;
 						overloads++;

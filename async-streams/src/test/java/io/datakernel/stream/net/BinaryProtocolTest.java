@@ -78,7 +78,7 @@ public class BinaryProtocolTest {
 
 		eventloop.connect(address, new SocketSettings(), new ConnectCallback() {
 					@Override
-					public void onConnect(SocketChannel socketChannel) {
+					protected void onConnect(SocketChannel socketChannel) {
 						SocketConnection connection = new StreamMessagingConnection<>(eventloop, socketChannel,
 								new StreamBinaryDeserializer<>(eventloop, intSerializer(), 10),
 								new StreamBinarySerializer<>(eventloop, intSerializer(), 2, 10, 0, false))
@@ -102,7 +102,7 @@ public class BinaryProtocolTest {
 					}
 
 					@Override
-					public void onException(Exception exception) {
+					protected void onException(Exception exception) {
 						fail("Test Exception: " + exception);
 					}
 				}
@@ -140,12 +140,12 @@ public class BinaryProtocolTest {
 								StreamProducers.ofIterable(eventloop, source).streamTo(streamSerializer.getInput());
 								messaging.write(streamSerializer.getOutput(), new CompletionCallback() {
 									@Override
-									public void onComplete() {
+									protected void onComplete() {
 
 									}
 
 									@Override
-									public void onException(Exception exception) {
+									protected void onException(Exception exception) {
 
 									}
 								});
@@ -158,7 +158,7 @@ public class BinaryProtocolTest {
 
 		eventloop.connect(address, new SocketSettings(), new ConnectCallback() {
 					@Override
-					public void onConnect(SocketChannel socketChannel) {
+					protected void onConnect(SocketChannel socketChannel) {
 						SocketConnection connection = new StreamMessagingConnection<>(eventloop, socketChannel,
 								new StreamBinaryDeserializer<>(eventloop, utf8Serializer(), 10),
 								new StreamBinarySerializer<>(eventloop, utf8Serializer(), 2, 10, 0, false))
@@ -176,7 +176,7 @@ public class BinaryProtocolTest {
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						fail("Test Exception: " + e);
 					}
 				}
@@ -224,7 +224,7 @@ public class BinaryProtocolTest {
 
 		eventloop.connect(address, new SocketSettings(), new ConnectCallback() {
 					@Override
-					public void onConnect(SocketChannel socketChannel) {
+					protected void onConnect(SocketChannel socketChannel) {
 						SocketConnection connection = new StreamMessagingConnection<>(eventloop, socketChannel,
 								new StreamBinaryDeserializer<>(eventloop, utf8Serializer(), 10),
 								new StreamBinarySerializer<>(eventloop, utf8Serializer(), 2, 10, 0, false))
@@ -238,12 +238,12 @@ public class BinaryProtocolTest {
 										messaging.write(streamSerializer.getOutput(), new CompletionCallback() {
 
 											@Override
-											public void onException(Exception exception) {
+											protected void onException(Exception exception) {
 
 											}
 
 											@Override
-											public void onComplete() {
+											protected void onComplete() {
 
 											}
 										});
@@ -255,7 +255,7 @@ public class BinaryProtocolTest {
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						fail("Test Exception: " + e);
 					}
 				}
@@ -299,14 +299,14 @@ public class BinaryProtocolTest {
 
 								consumerToList.setCompletionCallback(new CompletionCallback() {
 									@Override
-									public void onComplete() {
+									protected void onComplete() {
 										System.out.println("send ack");
 										messaging.sendMessage("ack");
 										messaging.shutdown();
 									}
 
 									@Override
-									public void onException(Exception exception) {
+									protected void onException(Exception exception) {
 										messaging.shutdown();
 									}
 								});
@@ -319,7 +319,7 @@ public class BinaryProtocolTest {
 
 		eventloop.connect(address, new SocketSettings(), new ConnectCallback() {
 					@Override
-					public void onConnect(SocketChannel socketChannel) {
+					protected void onConnect(SocketChannel socketChannel) {
 						SocketConnection connection = new StreamMessagingConnection<>(eventloop, socketChannel,
 								new StreamBinaryDeserializer<>(eventloop, utf8Serializer(), 10),
 								new StreamBinarySerializer<>(eventloop, utf8Serializer(), 2, 10, 0, false))
@@ -333,12 +333,12 @@ public class BinaryProtocolTest {
 										StreamProducers.ofIterable(eventloop, source).streamTo(streamSerializer.getInput());
 										messaging.write(streamSerializer.getOutput(), new CompletionCallback() {
 											@Override
-											public void onComplete() {
+											protected void onComplete() {
 
 											}
 
 											@Override
-											public void onException(Exception exception) {
+											protected void onException(Exception exception) {
 
 											}
 										});
@@ -357,7 +357,7 @@ public class BinaryProtocolTest {
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						fail("Test Exception: " + e);
 					}
 				}
@@ -407,7 +407,7 @@ public class BinaryProtocolTest {
 
 		eventloop.connect(address, new SocketSettings(), new ConnectCallback() {
 					@Override
-					public void onConnect(SocketChannel socketChannel) {
+					protected void onConnect(SocketChannel socketChannel) {
 						SocketConnection connection = new StreamMessagingConnection<>(eventloop, socketChannel,
 								new StreamGsonDeserializer<>(eventloop, new Gson(), String.class, 10),
 								new StreamGsonSerializer<>(eventloop, new Gson(), String.class, 1, 50, 0))
@@ -420,12 +420,12 @@ public class BinaryProtocolTest {
 										StreamProducers.ofIterable(eventloop, source).streamTo(streamSerializer.getInput());
 										messaging.write(streamSerializer.getOutput(), new CompletionCallback() {
 											@Override
-											public void onComplete() {
+											protected void onComplete() {
 
 											}
 
 											@Override
-											public void onException(Exception exception) {
+											protected void onException(Exception exception) {
 
 											}
 										});
@@ -437,7 +437,7 @@ public class BinaryProtocolTest {
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						fail("Test Exception: " + e);
 					}
 				}

@@ -24,7 +24,7 @@ import java.util.List;
 
 import static io.datakernel.aggregation_db.AggregationChunk.createChunk;
 
-public class AggregationCommitCallback implements ResultCallback<List<AggregationChunk.NewChunk>> {
+public class AggregationCommitCallback extends ResultCallback<List<AggregationChunk.NewChunk>> {
 	private static final Logger logger = LoggerFactory.getLogger(AggregationCommitCallback.class);
 
 	private final Aggregation aggregation;
@@ -34,7 +34,7 @@ public class AggregationCommitCallback implements ResultCallback<List<Aggregatio
 	}
 
 	@Override
-	public void onResult(List<AggregationChunk.NewChunk> result) {
+	protected void onResult(List<AggregationChunk.NewChunk> result) {
 		aggregation.incrementLastRevisionId();
 		for (AggregationChunk.NewChunk newChunk : result) {
 			aggregation.addToIndex(createChunk(aggregation.getLastRevisionId(), newChunk));
@@ -42,7 +42,7 @@ public class AggregationCommitCallback implements ResultCallback<List<Aggregatio
 	}
 
 	@Override
-	public void onException(Exception exception) {
+	protected void onException(Exception exception) {
 		logger.error("Exception thrown while trying to commit to aggregation {}.", aggregation);
 	}
 }

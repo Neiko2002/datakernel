@@ -19,7 +19,7 @@ package io.datakernel.async;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class TestLoggingResultCallback<T> implements ResultCallback<T> {
+class TestLoggingResultCallback<T> extends ResultCallback<T> {
 	private static final Logger logger = LoggerFactory.getLogger(TestLoggingResultCallback.class);
 
 	int results = 0;
@@ -28,14 +28,14 @@ class TestLoggingResultCallback<T> implements ResultCallback<T> {
 	Exception lastException;
 
 	@Override
-	public void onResult(T result) {
+	protected void onResult(T result) {
 		++results;
 		lastResult = result;
 		logger.info("Got result: {}. Total number of results: {}", result.toString(), results);
 	}
 
 	@Override
-	public void onException(Exception exception) {
+	protected void onException(Exception exception) {
 		++exceptions;
 		lastException = exception;
 		logger.info("Got exception: {}. Total number of exceptions: {}", exception.toString(), exceptions);

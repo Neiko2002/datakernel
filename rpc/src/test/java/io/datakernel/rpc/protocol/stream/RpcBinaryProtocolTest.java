@@ -46,14 +46,32 @@ public class RpcBinaryProtocolTest {
 	private static final int LISTEN_PORT = 12345;
 	private static final InetSocketAddress address = new InetSocketAddress(InetAddresses.forString("127.0.0.1"), LISTEN_PORT);
 
-	interface TestService {
-		void call(String request, ResultCallback<String> resultCallback);
-	}
-
 	@Before
 	public void before() {
 		ByteBufPool.clear();
 		ByteBufPool.setSizes(0, Integer.MAX_VALUE);
+	}
+
+	private static ResultCallback<String> getResultsObserver(final RpcClient client, final RpcServer server,
+	                                                         final List<String> results, final int countRequests) {
+		return new ResultCallback<String>() {
+			@Override
+			protected void onException(Exception exception) {
+				client.stop();
+				server.close();
+				exception.printStackTrace();
+			}
+
+			@Override
+			protected void onResult(String result) {
+				results.add(result);
+				if (results.size() == countRequests) {
+					client.stop();
+					server.close();
+				}
+			}
+
+		};
 	}
 
 	@Test
@@ -71,7 +89,7 @@ public class RpcBinaryProtocolTest {
 				.on(String.class, new RpcRequestHandler<String, String>() {
 					@Override
 					public void run(String request, ResultCallback<String> callback) {
-						callback.onResult("Hello, " + request + "!");
+						callback.sendResult("Hello, " + request + "!");
 					}
 				})
 				.setListenAddress(address);
@@ -79,36 +97,18 @@ public class RpcBinaryProtocolTest {
 
 		final int countRequests = 10;
 		final List<String> results = Lists.newArrayList();
-		final ResultCallback<String> resultsObserver = new ResultCallback<String>() {
-			@Override
-			public void onException(Exception exception) {
-				client.stop();
-				server.close();
-				exception.printStackTrace();
-			}
-
-			@Override
-			public void onResult(String result) {
-				results.add(result);
-				if (results.size() == countRequests) {
-					client.stop();
-					server.close();
-				}
-			}
-
-		};
 
 		client.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				for (int i = 0; i < countRequests; i++) {
-					client.sendRequest(testMessage, 1000, resultsObserver);
+					client.sendRequest(testMessage, 1000, getResultsObserver(client, server, results, countRequests));
 				}
 			}
 
 			@Override
-			public void onException(Exception e) {
-				resultsObserver.onException(e);
+			protected void onException(Exception e) {
+				getResultsObserver(client, server, results, countRequests).fireException(e);
 			}
 		});
 

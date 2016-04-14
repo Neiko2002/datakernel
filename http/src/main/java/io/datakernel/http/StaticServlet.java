@@ -68,7 +68,7 @@ public abstract class StaticServlet implements AsyncHttpServlet {
 		final String finalPath = path;
 		doServeAsync(path, new ResultCallback<ByteBuf>() {
 			@Override
-			public void onResult(@Nullable ByteBuf buf) {
+			protected void onResult(@Nullable ByteBuf buf) {
 				if (buf == null)
 					callback.onHttpError(new HttpServletError(404, finalPath));
 				else
@@ -76,7 +76,7 @@ public abstract class StaticServlet implements AsyncHttpServlet {
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				callback.onHttpError(new HttpServletError(500, finalPath, exception));
 			}
 		});

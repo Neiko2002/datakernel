@@ -67,7 +67,7 @@ public final class RpcServerConnection implements RpcConnection {
 	private void apply(Object request, ResultCallback<Object> callback) {
 		RpcRequestHandler requestHandler = handlers.get(request.getClass());
 		if (requestHandler == null) {
-			callback.onException(new ParseException("Failed to process request " + request));
+			callback.fireException(new ParseException("Failed to process request " + request));
 			return;
 		}
 		requestHandler.run(request, callback);
@@ -80,14 +80,14 @@ public final class RpcServerConnection implements RpcConnection {
 
 		apply(message.getData(), new ResultCallback<Object>() {
 			@Override
-			public void onResult(Object result) {
+			protected void onResult(Object result) {
 				updateProcessTime();
 				protocol.sendMessage(new RpcMessage(cookie, result));
 				successfulResponses.recordEvent();
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				updateProcessTime();
 				lastRemoteException.recordException(exception, message.getData());
 				sendError(cookie, exception);

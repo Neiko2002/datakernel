@@ -100,18 +100,18 @@ public final class PartitioningAggregationChunker<T> extends AbstractStreamSplit
 	private ResultCallback<List<AggregationChunk.NewChunk>> getResultCallback(final int partition) {
 		return new ResultCallback<List<AggregationChunk.NewChunk>>() {
 			@Override
-			public void onResult(List<AggregationChunk.NewChunk> resultChunks) {
+			protected void onResult(List<AggregationChunk.NewChunk> resultChunks) {
 				chunks.addAll(resultChunks);
 				partitionChunkers.remove(partition);
 
 				if (partitionChunkers.isEmpty() && inputConsumer.getConsumerStatus() == StreamStatus.END_OF_STREAM &&
 						!returnedResult) {
-					chunksCallback.onResult(chunks);
+					chunksCallback.sendResult(chunks);
 				}
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				logger.error("Chunker for partition #{} failed", partition, e);
 				closeWithError(e);
 				reportException(e);
@@ -121,7 +121,7 @@ public final class PartitioningAggregationChunker<T> extends AbstractStreamSplit
 
 	private void reportException(Exception e) {
 		if (!returnedResult) {
-			chunksCallback.onException(e);
+			chunksCallback.fireException(e);
 			returnedResult = true;
 		}
 	}

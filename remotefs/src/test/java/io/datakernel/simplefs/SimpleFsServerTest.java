@@ -19,6 +19,7 @@ package io.datakernel.simplefs;
 import com.google.common.collect.Lists;
 import io.datakernel.StreamTransformerWithCounter;
 import io.datakernel.async.*;
+import io.datakernel.async.AsyncCallbacks.WaitAllHandler;
 import io.datakernel.bytebuf.ByteBuf;
 import io.datakernel.bytebuf.ByteBufPool;
 import io.datakernel.eventloop.Eventloop;
@@ -130,29 +131,29 @@ public class SimpleFsServerTest {
 		final EventloopService server = createServer(eventloop, executor);
 		final SimpleFsClient client = createClient(eventloop);
 
-		final CompletionCallback callback = AsyncCallbacks.waitAll(files, new CompletionCallback() {
+		final WaitAllHandler waitAllHandler = AsyncCallbacks.waitAll(files, new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				server.stop(ignoreCompletionCallback());
 			}
 
 			@Override
-			public void onException(Exception e) {
+			protected void onException(Exception e) {
 				server.stop(ignoreCompletionCallback());
 			}
 		});
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				for (int i = 0; i < files; i++) {
 					StreamProducer<ByteBuf> producer = StreamProducers.ofValue(eventloop, ByteBuf.wrap(bytes));
-					client.upload("test" + i, producer, callback);
+					client.upload("test" + i, producer, waitAllHandler.getCallback());
 				}
 			}
 
 			@Override
-			public void onException(Exception ignored) {
+			protected void onException(Exception ignored) {
 
 			}
 		});
@@ -203,22 +204,22 @@ public class SimpleFsServerTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				client.upload(resultFile, producer, new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						server.stop(ignoreCompletionCallback());
 					}
 
 					@Override
-					public void onException(Exception ignored) {
+					protected void onException(Exception ignored) {
 						fail("Can't end here");
 					}
 				});
 			}
 
 			@Override
-			public void onException(Exception ignored) {
+			protected void onException(Exception ignored) {
 
 			}
 		});
@@ -245,22 +246,22 @@ public class SimpleFsServerTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				client.upload(resultFile, producer, new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						server.stop(ignoreCompletionCallback());
 					}
 
 					@Override
-					public void onException(Exception ignored) {
+					protected void onException(Exception ignored) {
 						server.stop(ignoreCompletionCallback());
 					}
 				});
 			}
 
 			@Override
-			public void onException(Exception ignored) {
+			protected void onException(Exception ignored) {
 				fail("Unexpected");
 			}
 		});
@@ -298,29 +299,29 @@ public class SimpleFsServerTest {
 		final SimpleFsClient client = createClient(eventloop);
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				client.download(requestedFile, startPosition, new ForwardingResultCallback<StreamTransformerWithCounter>(this) {
 					@Override
-					public void onResult(StreamTransformerWithCounter result) {
+					protected void onResult(StreamTransformerWithCounter result) {
 						try {
 							StreamFileWriter writer = StreamFileWriter.create(eventloop, executor, clientStorage.resolve(resultFile));
 							result.getOutput().streamTo(writer);
 							result.setPositionCallback(sizeFuture);
 							writer.setFlushCallback(new ForwardingCompletionCallback(this) {
 								@Override
-								public void onComplete() {
+								protected void onComplete() {
 									server.stop(ignoreCompletionCallback());
 								}
 							});
 						} catch (IOException e) {
-							onException(e);
+							fireException(e);
 						}
 					}
 				});
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				server.stop(ignoreCompletionCallback());
 			}
 		});
@@ -355,29 +356,33 @@ public class SimpleFsServerTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
-
-				client.download(requestedFile, 0, new ForwardingResultCallback<StreamTransformerWithCounter>(this) {
+			protected void onComplete() {
+				client.download(requestedFile, 0, new ResultCallback<StreamTransformerWithCounter>() {
 					@Override
-					public void onResult(StreamTransformerWithCounter result) {
+					protected void onResult(StreamTransformerWithCounter result) {
 						try {
 							StreamFileWriter consumer = StreamFileWriter.create(eventloop, executor, clientStorage.resolve(requestedFile));
 							consumer.setFlushCallback(new ForwardingCompletionCallback(this) {
 								@Override
-								public void onComplete() {
+								protected void onComplete() {
 									server.stop(ignoreCompletionCallback());
 								}
 							});
 							result.getOutput().streamTo(consumer);
 						} catch (IOException e) {
-							this.onException(e);
+							this.fireException(e);
 						}
+					}
+
+					@Override
+					protected void onException(Exception ignored) {
+						server.stop(ignoreCompletionCallback());
 					}
 				});
 			}
 
 			@Override
-			public void onException(Exception ignored) {
+			protected void onException(Exception ignored) {
 				server.stop(ignoreCompletionCallback());
 			}
 		});
@@ -405,15 +410,15 @@ public class SimpleFsServerTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				consumer1.setFlushCallback(new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						server.stop(ignoreCompletionCallback());
 					}
 
 					@Override
-					public void onException(Exception ignored) {
+					protected void onException(Exception ignored) {
 						server.stop(ignoreCompletionCallback());
 					}
 				});
@@ -421,12 +426,12 @@ public class SimpleFsServerTest {
 
 				consumer2.setFlushCallback(new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						server.stop(ignoreCompletionCallback());
 					}
 
 					@Override
-					public void onException(Exception ignored) {
+					protected void onException(Exception ignored) {
 						server.stop(ignoreCompletionCallback());
 					}
 				});
@@ -435,7 +440,7 @@ public class SimpleFsServerTest {
 			}
 
 			@Override
-			public void onException(Exception ignored) {
+			protected void onException(Exception ignored) {
 
 			}
 		});
@@ -480,22 +485,22 @@ public class SimpleFsServerTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				client.delete(requestedFile, new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						fail("Should not end here");
 					}
 
 					@Override
-					public void onException(Exception ignored) {
+					protected void onException(Exception ignored) {
 						server.stop(ignoreCompletionCallback());
 					}
 				});
 			}
 
 			@Override
-			public void onException(Exception ignored) {
+			protected void onException(Exception ignored) {
 
 			}
 		});
@@ -518,24 +523,24 @@ public class SimpleFsServerTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				client.list(new ResultCallback<List<String>>() {
 					@Override
-					public void onResult(List<String> result) {
+					protected void onResult(List<String> result) {
 						System.out.println("Received: " + result);
 						actual.addAll(result);
 						server.stop(ignoreCompletionCallback());
 					}
 
 					@Override
-					public void onException(Exception ignored) {
+					protected void onException(Exception ignored) {
 						server.stop(ignoreCompletionCallback());
 					}
 				});
 			}
 
 			@Override
-			public void onException(Exception ignored) {
+			protected void onException(Exception ignored) {
 
 			}
 		});
@@ -562,34 +567,34 @@ public class SimpleFsServerTest {
 
 		AsyncFile.open(eventloop, executor, clientStorage.resolve(requestedFile), new OpenOption[]{READ}, new ResultCallback<AsyncFile>() {
 			@Override
-			public void onResult(AsyncFile result) {
+			protected void onResult(AsyncFile result) {
 				final StreamFileReader producer = readFileFully(eventloop, result, 16 * 1024);
 
 				server.start(new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						client.upload(resultFile, producer, new CompletionCallback() {
 							@Override
-							public void onComplete() {
+							protected void onComplete() {
 								server.stop(ignoreCompletionCallback());
 							}
 
 							@Override
-							public void onException(Exception ignored) {
+							protected void onException(Exception ignored) {
 								server.stop(ignoreCompletionCallback());
 							}
 						});
 					}
 
 					@Override
-					public void onException(Exception ignored) {
+					protected void onException(Exception ignored) {
 
 					}
 				});
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 
 			}
 		});
@@ -610,19 +615,19 @@ public class SimpleFsServerTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				client.download(requestedFile, startPosition, new ResultCallback<StreamTransformerWithCounter>() {
 					@Override
-					public void onResult(final StreamTransformerWithCounter producer) {
+					protected void onResult(final StreamTransformerWithCounter producer) {
 						AsyncFile.open(eventloop, executor, clientStorage.resolve(resultFile), new OpenOption[]{CREATE_NEW, WRITE, TRUNCATE_EXISTING},
 								new ForwardingResultCallback<AsyncFile>(this) {
 									@Override
-									public void onResult(AsyncFile result) {
+									protected void onResult(AsyncFile result) {
 										final StreamFileWriter writer = StreamFileWriter.create(eventloop, result);
 										producer.getOutput().streamTo(writer);
 										writer.setFlushCallback(new ForwardingCompletionCallback(this) {
 											@Override
-											public void onComplete() {
+											protected void onComplete() {
 												server.stop(ignoreCompletionCallback());
 											}
 										});
@@ -632,14 +637,14 @@ public class SimpleFsServerTest {
 					}
 
 					@Override
-					public void onException(Exception e) {
+					protected void onException(Exception e) {
 						server.stop(ignoreCompletionCallback());
 					}
 				});
 			}
 
 			@Override
-			public void onException(Exception ignored) {
+			protected void onException(Exception ignored) {
 				// ignored
 			}
 		});
@@ -657,22 +662,22 @@ public class SimpleFsServerTest {
 
 		server.start(new CompletionCallback() {
 			@Override
-			public void onComplete() {
+			protected void onComplete() {
 				client.delete(requestedFile, new CompletionCallback() {
 					@Override
-					public void onComplete() {
+					protected void onComplete() {
 						server.stop(ignoreCompletionCallback());
 					}
 
 					@Override
-					public void onException(Exception ignored) {
+					protected void onException(Exception ignored) {
 						server.stop(ignoreCompletionCallback());
 					}
 				});
 			}
 
 			@Override
-			public void onException(Exception ignored) {
+			protected void onException(Exception ignored) {
 
 			}
 		});
@@ -684,12 +689,12 @@ public class SimpleFsServerTest {
 	private ResultCallback<StreamTransformerWithCounter> streamTo(final StreamFileWriter consumer) {
 		return new ResultCallback<StreamTransformerWithCounter>() {
 			@Override
-			public void onResult(StreamTransformerWithCounter result) {
+			protected void onResult(StreamTransformerWithCounter result) {
 				result.getOutput().streamTo(consumer);
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				throw new RuntimeException("Can't get stream producer");
 			}
 		};

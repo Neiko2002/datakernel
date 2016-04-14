@@ -82,7 +82,7 @@ public final class TcpStreamSocketConnectionTest {
 		final StreamBinarySerializer<Integer> streamSerializer = new StreamBinarySerializer<>(eventloop, intSerializer(), 1, 10, 0, false);
 		reconnect(eventloop, address, defaultSocketSettings(), 3, 100L, new ConnectCallback() {
 			@Override
-			public void onConnect(SocketChannel socketChannel) {
+			protected void onConnect(SocketChannel socketChannel) {
 				SocketConnection connection = new TcpStreamSocketConnection(eventloop, socketChannel) {
 					@Override
 					protected void wire(StreamProducer<ByteBuf> socketReader, StreamConsumer<ByteBuf> socketWriter) {
@@ -94,7 +94,7 @@ public final class TcpStreamSocketConnectionTest {
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				fail();
 			}
 		});
@@ -135,7 +135,7 @@ public final class TcpStreamSocketConnectionTest {
 		final StreamBinaryDeserializer<Integer> streamDeserializer = new StreamBinaryDeserializer<>(eventloop, intSerializer(), 10);
 		reconnect(eventloop, address, defaultSocketSettings(), 3, 100L, new ConnectCallback() {
 			@Override
-			public void onConnect(SocketChannel socketChannel) {
+			protected void onConnect(SocketChannel socketChannel) {
 				SocketConnection connection = new TcpStreamSocketConnection(eventloop, socketChannel) {
 					@Override
 					protected void wire(StreamProducer<ByteBuf> socketReader, StreamConsumer<ByteBuf> socketWriter) {
@@ -149,7 +149,7 @@ public final class TcpStreamSocketConnectionTest {
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				fail();
 			}
 		});
@@ -200,7 +200,7 @@ public final class TcpStreamSocketConnectionTest {
 		final StreamGsonDeserializer<Integer> streamDeserializer = new StreamGsonDeserializer<>(eventloop, new Gson(), Integer.class, 10);
 		reconnect(eventloop, address, defaultSocketSettings(), 3, 100L, new ConnectCallback() {
 			@Override
-			public void onConnect(SocketChannel socketChannel) {
+			protected void onConnect(SocketChannel socketChannel) {
 				SocketConnection connection = new TcpStreamSocketConnection(eventloop, socketChannel) {
 					@Override
 					protected void wire(StreamProducer<ByteBuf> socketReader, StreamConsumer<ByteBuf> socketWriter) {
@@ -214,7 +214,7 @@ public final class TcpStreamSocketConnectionTest {
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				fail();
 			}
 		});
@@ -266,7 +266,7 @@ public final class TcpStreamSocketConnectionTest {
 		final StreamGsonSerializer<Integer> streamSerializer = new StreamGsonSerializer<>(eventloop, new Gson(), Integer.class, 1, 50, 0);
 		reconnect(eventloop, address, defaultSocketSettings(), 3, 100L, new ConnectCallback() {
 			@Override
-			public void onConnect(SocketChannel socketChannel) {
+			protected void onConnect(SocketChannel socketChannel) {
 				SocketConnection connection = new TcpStreamSocketConnection(eventloop, socketChannel) {
 					@Override
 					protected void wire(StreamProducer<ByteBuf> socketReader, StreamConsumer<ByteBuf> socketWriter) {
@@ -278,7 +278,7 @@ public final class TcpStreamSocketConnectionTest {
 			}
 
 			@Override
-			public void onException(Exception exception) {
+			protected void onException(Exception exception) {
 				fail();
 			}
 		});

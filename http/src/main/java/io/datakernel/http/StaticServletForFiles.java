@@ -48,22 +48,22 @@ public final class StaticServletForFiles extends StaticServlet {
 		Path path = storage.resolve(name).normalize();
 
 		if (!path.startsWith(storage)) {
-			callback.onResult(null);
+			callback.sendResult(null);
 		}
 
 		AsyncFile.open(eventloop, executor, path,
 				new OpenOption[]{READ}, new ResultCallback<AsyncFile>() {
 					@Override
-					public void onResult(AsyncFile file) {
+					protected void onResult(AsyncFile file) {
 						file.readFully(callback);
 					}
 
 					@Override
-					public void onException(Exception exception) {
+					protected void onException(Exception exception) {
 						if (exception instanceof NoSuchFileException)
-							callback.onResult(null);
+							callback.sendResult(null);
 						else
-							callback.onException(exception);
+							callback.fireException(exception);
 					}
 				});
 	}
