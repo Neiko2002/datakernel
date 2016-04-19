@@ -58,21 +58,21 @@ public final class HttpRequestHandler implements RequestHandler {
 					HttpResponse httpResponse = httpResultProcessor.apply(result);
 					logger.info("Processed request {} ({}) [totalTime={}, jsonConstruction={}]", httpRequest,
 							reportingQuery, totalTimeStopwatch, resultProcessingStopwatch);
-					resultCallback.onResult(httpResponse);
+					resultCallback.sendResult(httpResponse);
 				}
 
 				@Override
 				protected void onException(Exception e) {
 					logger.error("Executing query {} failed.", reportingQuery, e);
-					resultCallback.onHttpError(new HttpServletError(500, e));
+					resultCallback.sendHttpError(new HttpServletError(500, e));
 				}
 			});
 		} catch (QueryException e) {
 			logger.info("Request {} could not be processed because of error: {}", httpRequest, e.getMessage());
-			resultCallback.onHttpError(new HttpServletError(400, e));
+			resultCallback.sendHttpError(new HttpServletError(400, e));
 		} catch (JsonParseException e) {
 			logger.info("Failed to parse JSON in request {}", httpRequest);
-			resultCallback.onHttpError(new HttpServletError(400, e));
+			resultCallback.sendHttpError(new HttpServletError(400, e));
 		}
 	}
 }

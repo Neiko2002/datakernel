@@ -107,7 +107,7 @@ public class HelloWorldGuiceTest {
 				protected void doServeAsync(HttpRequest request, Callback callback) {
 					HttpResponse httpResponse = HttpResponse.create(200);
 					httpResponse.body(ByteBuf.wrap(ByteBufStrings.encodeAscii("Hello world: worker server #" + workerId)));
-					callback.onResult(httpResponse);
+					callback.sendResult(httpResponse);
 				}
 			};
 		}
