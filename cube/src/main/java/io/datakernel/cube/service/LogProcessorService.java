@@ -18,38 +18,67 @@ package io.datakernel.cube.service;
 
 import io.datakernel.async.CompletionCallback;
 import io.datakernel.cube.Cube;
+import io.datakernel.cube.Cube.ChunksOverlapStatus;
 import io.datakernel.eventloop.Eventloop;
 import io.datakernel.eventloop.EventloopService;
 import io.datakernel.eventloop.ScheduledRunnable;
+import io.datakernel.jmx.EventloopJmxMBean;
+import io.datakernel.jmx.JmxAttribute;
 import io.datakernel.logfs.LogProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class LogProcessorService implements EventloopService {
+public final class LogProcessorService implements EventloopService, EventloopJmxMBean {
 	private static final Logger logger = LoggerFactory.getLogger(LogProcessorService.class);
 
 	private final Eventloop eventloop;
 	private final Cube cube;
 	private final LogProcessor logProcessor;
-	private final int logProcessingPeriodMillis;
 
+	// settings
+	private int basicPeriodMillis;
+	private int maxPeriodMillis;
+	private int softOverlappingChunksThreshold;
+	private int criticalOverlappingChunksThreshold;
+	private double periodMultiplier;
+
+	// state
+	private int currentPeriodMillis;
 	private ScheduledRunnable processingTask;
 
-	public LogProcessorService(Eventloop eventloop, Cube cube, LogProcessor logProcessor, int logProcessingPeriodMillis) {
+	public LogProcessorService(Eventloop eventloop, Cube cube, LogProcessor logProcessor,
+	                           int basicPeriodMillis, int maxPeriodMillis, int softOverlappingChunksThreshold,
+	                           int criticalOverlappingChunksThreshold, double periodMultiplier) {
 		this.eventloop = eventloop;
 		this.cube = cube;
 		this.logProcessor = logProcessor;
-		this.logProcessingPeriodMillis = logProcessingPeriodMillis;
+		this.currentPeriodMillis = basicPeriodMillis;
+		this.basicPeriodMillis = basicPeriodMillis;
+		this.maxPeriodMillis = maxPeriodMillis;
+		this.softOverlappingChunksThreshold = softOverlappingChunksThreshold;
+		this.criticalOverlappingChunksThreshold = criticalOverlappingChunksThreshold;
+		this.periodMultiplier = periodMultiplier;
 	}
 
 	private void processLogs() {
 		cube.loadChunks(new CompletionCallback() {
 			@Override
 			public void onComplete() {
-				if (cube.containsExcessiveNumberOfOverlappingChunks()) {
-					logger.info("Cube contains excessive number of overlapping chunks. Skipping this aggregation operation");
-					scheduleNext();
-					return;
+				ChunksOverlapStatus status = cube.getChunksOverlapStatus(softOverlappingChunksThreshold, criticalOverlappingChunksThreshold);
+
+				switch (status) {
+					case CRITICAL:
+						updatePeriod(currentPeriodMillis * periodMultiplier);
+						logger.info("Overlap status is critical, skipping this operation. New period is {} s", getCurrentPeriodSeconds());
+						scheduleNext();
+						return;
+					case SOFT:
+						updatePeriod(currentPeriodMillis * periodMultiplier);
+						logger.info("Overlap status is soft, increasing period to {} s", getCurrentPeriodSeconds());
+						break;
+					case OK:
+						updatePeriod(currentPeriodMillis / periodMultiplier);
+						logger.info("Overlap status is ok, decreasing period to {} s", getCurrentPeriodSeconds());
 				}
 
 				logProcessor.processLogs(new CompletionCallback() {
@@ -61,6 +90,7 @@ public final class LogProcessorService implements EventloopService {
 					@Override
 					public void onException(Exception e) {
 						logger.error("Processing logs failed", e);
+						resetPeriod();
 						scheduleNext();
 					}
 				});
@@ -69,16 +99,37 @@ public final class LogProcessorService implements EventloopService {
 			@Override
 			public void onException(Exception e) {
 				logger.error("Could not load chunks", e);
+				resetPeriod();
 				scheduleNext();
 			}
 		});
+	}
+
+	private void updatePeriod(double newPeriod) {
+		currentPeriodMillis = constrainPeriod((int) newPeriod);
+	}
+
+	private void resetPeriod() {
+		currentPeriodMillis = basicPeriodMillis;
+	}
+
+	private int getCurrentPeriodSeconds() {
+		return currentPeriodMillis / 1000;
+	}
+
+	private int constrainPeriod(int period) {
+		if (period > maxPeriodMillis)
+			return maxPeriodMillis;
+		if (period < basicPeriodMillis)
+			return basicPeriodMillis;
+		return period;
 	}
 
 	private void scheduleNext() {
 		if (processingTask != null && processingTask.isCancelled())
 			return;
 
-		processingTask = eventloop.scheduleBackground(eventloop.currentTimeMillis() + logProcessingPeriodMillis, new Runnable() {
+		processingTask = eventloop.scheduleBackground(eventloop.currentTimeMillis() + currentPeriodMillis, new Runnable() {
 			@Override
 			public void run() {
 				processLogs();
@@ -104,5 +155,62 @@ public final class LogProcessorService implements EventloopService {
 	@Override
 	public Eventloop getEventloop() {
 		return eventloop;
+	}
+
+	// jmx
+
+	@JmxAttribute
+	public int getCurrentPeriodMillis() {
+		return currentPeriodMillis;
+	}
+
+	@JmxAttribute
+	public int getBasicPeriodMillis() {
+		return basicPeriodMillis;
+	}
+
+	@JmxAttribute
+	public void setBasicPeriodMillis(int basicPeriodMillis) {
+		this.basicPeriodMillis = basicPeriodMillis;
+	}
+
+	@JmxAttribute
+	public int getMaxPeriodMillis() {
+		return maxPeriodMillis;
+	}
+
+	@JmxAttribute
+	public void setMaxPeriodMillis(int maxPeriodMillis) {
+		this.maxPeriodMillis = maxPeriodMillis;
+	}
+
+	@JmxAttribute
+	public int getSoftOverlappingChunksThreshold() {
+		return softOverlappingChunksThreshold;
+	}
+
+	@JmxAttribute
+	public void setSoftOverlappingChunksThreshold(int softOverlappingChunksThreshold) {
+		this.softOverlappingChunksThreshold = softOverlappingChunksThreshold;
+	}
+
+	@JmxAttribute
+	public int getCriticalOverlappingChunksThreshold() {
+		return criticalOverlappingChunksThreshold;
+	}
+
+	@JmxAttribute
+	public void setCriticalOverlappingChunksThreshold(int criticalOverlappingChunksThreshold) {
+		this.criticalOverlappingChunksThreshold = criticalOverlappingChunksThreshold;
+	}
+
+	@JmxAttribute
+	public double getPeriodMultiplier() {
+		return periodMultiplier;
+	}
+
+	@JmxAttribute
+	public void setPeriodMultiplier(double periodMultiplier) {
+		this.periodMultiplier = periodMultiplier;
 	}
 }

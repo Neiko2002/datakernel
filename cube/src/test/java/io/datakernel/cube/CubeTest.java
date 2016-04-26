@@ -74,8 +74,7 @@ public class CubeTest {
 		CubeMetadataStorageStub cubeMetadataStorage = new CubeMetadataStorageStub();
 		Cube cube = new Cube(eventloop, executorService, classLoader, cubeMetadataStorage, storage,
 				aggregationStructure, Aggregation.DEFAULT_AGGREGATION_CHUNK_SIZE, Aggregation.DEFAULT_SORTER_ITEMS_IN_MEMORY,
-				Aggregation.DEFAULT_SORTER_BLOCK_SIZE, Cube.DEFAULT_OVERLAPPING_CHUNKS_THRESHOLD,
-				Aggregation.DEFAULT_MAX_INCREMENTAL_RELOAD_PERIOD_MILLIS);
+				Aggregation.DEFAULT_SORTER_BLOCK_SIZE, Aggregation.DEFAULT_MAX_INCREMENTAL_RELOAD_PERIOD_MILLIS);
 		cube.addAggregation("detailedAggregation", new AggregationMetadata(asList("key1", "key2"),
 				asList("metric1", "metric2", "metric3")));
 		return cube;
@@ -87,8 +86,7 @@ public class CubeTest {
 		CubeMetadataStorageStub cubeMetadataStorage = new CubeMetadataStorageStub();
 		Cube cube = new Cube(eventloop, executorService, classLoader, cubeMetadataStorage, storage, aggregationStructure,
 				Aggregation.DEFAULT_AGGREGATION_CHUNK_SIZE, Aggregation.DEFAULT_SORTER_ITEMS_IN_MEMORY,
-				Aggregation.DEFAULT_SORTER_BLOCK_SIZE, Cube.DEFAULT_OVERLAPPING_CHUNKS_THRESHOLD,
-				Aggregation.DEFAULT_MAX_INCREMENTAL_RELOAD_PERIOD_MILLIS);
+				Aggregation.DEFAULT_SORTER_BLOCK_SIZE, Aggregation.DEFAULT_MAX_INCREMENTAL_RELOAD_PERIOD_MILLIS);
 		cube.addAggregation("detailedAggregation", new AggregationMetadata(asList("key1", "key2", "key3", "key4", "key5"),
 				asList("metric1", "metric2", "metric3")));
 		return cube;

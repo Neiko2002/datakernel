@@ -72,8 +72,6 @@ import static java.util.Collections.sort;
 public final class Cube implements EventloopJmxMBean {
 	private static final Logger logger = LoggerFactory.getLogger(Cube.class);
 
-	public static final int DEFAULT_OVERLAPPING_CHUNKS_THRESHOLD = 300;
-
 	private final Eventloop eventloop;
 	private final ExecutorService executorService;
 	private final DefiningClassLoader classLoader;
@@ -86,7 +84,6 @@ public final class Cube implements EventloopJmxMBean {
 	private int aggregationChunkSize;
 	private int sorterItemsInMemory;
 	private int sorterBlockSize;
-	private int overlappingChunksThreshold;
 	private int maxIncrementalReloadPeriodMillis;
 	private boolean ignoreChunkReadingExceptions;
 
@@ -113,7 +110,7 @@ public final class Cube implements EventloopJmxMBean {
 	public Cube(Eventloop eventloop, ExecutorService executorService, DefiningClassLoader classLoader,
 	            CubeMetadataStorage cubeMetadataStorage, AggregationChunkStorage aggregationChunkStorage,
 	            AggregationStructure structure, int aggregationChunkSize, int sorterItemsInMemory, int sorterBlockSize,
-	            int overlappingChunksThreshold, int maxIncrementalReloadPeriodMillis) {
+	            int maxIncrementalReloadPeriodMillis) {
 		this.eventloop = eventloop;
 		this.executorService = executorService;
 		this.classLoader = classLoader;
@@ -123,7 +120,6 @@ public final class Cube implements EventloopJmxMBean {
 		this.aggregationChunkSize = aggregationChunkSize;
 		this.sorterItemsInMemory = sorterItemsInMemory;
 		this.sorterBlockSize = sorterBlockSize;
-		this.overlappingChunksThreshold = overlappingChunksThreshold;
 		this.maxIncrementalReloadPeriodMillis = maxIncrementalReloadPeriodMillis;
 	}
 
@@ -412,18 +408,34 @@ public final class Cube implements EventloopJmxMBean {
 				query.getResultMeasures(), classLoader);
 	}
 
-	public boolean containsExcessiveNumberOfOverlappingChunks() {
-		boolean excessive = false;
+	public enum ChunksOverlapStatus {
+		OK,
+		SOFT,
+		CRITICAL
+	}
+
+	public ChunksOverlapStatus getChunksOverlapStatus(int softThreshold, int criticalThreshold) {
+		ChunksOverlapStatus status = ChunksOverlapStatus.OK;
 
 		for (Aggregation aggregation : aggregations.values()) {
 			int numberOfOverlappingChunks = aggregation.getNumberOfOverlappingChunks();
-			if (numberOfOverlappingChunks > overlappingChunksThreshold) {
-				logger.info("Aggregation {} contains {} overlapping chunks", aggregation, numberOfOverlappingChunks);
-				excessive = true;
+
+			if (numberOfOverlappingChunks > criticalThreshold) {
+				logger.info("Aggregation {} contains critical number of overlapping chunks – {} (threshold = {})",
+						aggregation, numberOfOverlappingChunks, criticalThreshold);
+				status = ChunksOverlapStatus.CRITICAL;
+				continue;
+			}
+
+			if (numberOfOverlappingChunks > softThreshold) {
+				logger.info("Aggregation {} contains soft number of overlapping chunks – {} (threshold = {})",
+						aggregation, numberOfOverlappingChunks, softThreshold);
+				if (status == ChunksOverlapStatus.OK)
+					status = ChunksOverlapStatus.SOFT;
 			}
 		}
 
-		return excessive;
+		return status;
 	}
 
 	public void loadChunks(final CompletionCallback callback) {
@@ -776,16 +788,6 @@ public final class Cube implements EventloopJmxMBean {
 	@JmxAttribute
 	public int getSorterBlockSize() {
 		return sorterBlockSize;
-	}
-
-	@JmxAttribute
-	public int getOverlappingChunksThreshold() {
-		return overlappingChunksThreshold;
-	}
-
-	@JmxAttribute
-	public void setOverlappingChunksThreshold(int overlappingChunksThreshold) {
-		this.overlappingChunksThreshold = overlappingChunksThreshold;
 	}
 
 	@Override
